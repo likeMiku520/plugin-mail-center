@@ -1,0 +1,24 @@
+# Refer https://docs.halo.run/developer-guide/plugin/basics/manifest
+
+apiVersion: plugin.halo.run/v1alpha1
+kind: Plugin
+metadata:
+  # The name defines how the plugin is invoked, A unique name
+  name: mail-center
+spec:
+  enabled: true
+  requires: ">=2.26.0"
+  author:
+    name: fufu大王
+    website: https://blog.fufu520.cn
+  logo: logo.webp
+  homepage: https://blog.fufu520.cn
+  repo: https://github.com/likeMiku520/plugin-mail-center
+  issues: https://github.com/likeMiku520/plugin-mail-center/issues
+  displayName: "邮件中心"
+  description: "把站内所有可发送的邮件模板集中到一处：手动挑模板给人发信，也能自己写模板，还能留下接口让代码和事件自动触发发信。"
+  settingName: mail-center-settings
+  configMapName: mail-center-configmap
+  license:
+    - name: "GPL-3.0"
+      url: https://www.gnu.org/licenses/gpl-3.0.html

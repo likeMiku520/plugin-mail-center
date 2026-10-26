@@ -1,0 +1,49 @@
+apiVersion: v1alpha1
+kind: Setting
+metadata:
+  name: mail-center-settings
+spec:
+  forms:
+    - group: basic
+      label: 运行设置
+      formSchema:
+        - $formkit: number
+          name: logRetentionDays
+          label: 发送记录保留天数
+          help: 超过这个天数的发送记录会被自动清理。填 0 表示永久保留。
+          value: 90
+          min: 0
+          max: 3650
+        - $formkit: number
+          name: maxLogs
+          label: 发送记录上限条数
+          help: 记录条数超过上限时，最旧的记录会被清理，避免数据库无限膨胀。
+          value: 2000
+          min: 100
+          max: 100000
+        - $formkit: number
+          name: triggerIntervalSeconds
+          label: 自动触发检查间隔（秒）
+          help: 触发规则扫描新评论、新用户、新文章的频率，越小越及时、查询越频繁。
+          value: 60
+          min: 15
+          max: 3600
+        - $formkit: checkbox
+          name: notifyOnlyApprovedComments
+          label: 评论只对已通过的评论发信
+          help: 打开后，只有审核通过的评论才会触发发信；关闭后评论一提交就会发信。
+          value: true
+        - $formkit: number
+          name: triggerLookbackHours
+          label: 触发回看时长（小时）
+          help: 每次扫描时向前回看多长时间内的新内容。调大可以兜住停机期间漏掉的事件。
+          value: 24
+          min: 1
+          max: 720
+        - $formkit: number
+          name: sendRateLimitPerMinute
+          label: 触发接口每分钟限流
+          help: 外部代码调用触发接口时，每个来源每分钟最多允许的请求数。
+          value: 60
+          min: 1
+          max: 6000

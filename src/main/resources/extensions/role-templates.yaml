@@ -1,0 +1,33 @@
+apiVersion: v1alpha1
+kind: Role
+metadata:
+  name: role-template-mail-center-manage
+  labels:
+    halo.run/role-template: "true"
+    halo.run/hidden: "true"
+    rbac.authorization.halo.run/aggregate-to-super-role: "true"
+rules:
+  - apiGroups: ["mail.fufu520.cn"]
+    resources:
+      - "overview"
+      - "templates"
+      - "recipients"
+      - "preview"
+      - "send"
+      - "logs"
+      - "triggers"
+      - "channel"
+    verbs: ["get", "list", "create", "update", "delete"]
+---
+apiVersion: v1alpha1
+kind: Role
+metadata:
+  name: role-template-mail-center-trigger
+  labels:
+    halo.run/role-template: "true"
+    halo.run/hidden: "true"
+    rbac.authorization.halo.run/aggregate-to-anonymous: "true"
+rules:
+  - apiGroups: ["mail.fufu520.cn"]
+    resources: ["trigger"]
+    verbs: ["create"]
