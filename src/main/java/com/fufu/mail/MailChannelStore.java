@@ -47,14 +47,22 @@ public class MailChannelStore {
     }
 
     public MailChannel save(MailChannel channel) {
-        var secret = client.fetch(Secret.class, OWN_SECRET).orElseGet(() -> {
+        var secret = client.fetch(Secret.class, OWN_SECRET).orElse(null);
+        if (secret == null) {
             var created = new Secret();
             created.setMetadata(new Metadata());
             created.getMetadata().setName(OWN_SECRET);
             created.setStringData(new HashMap<>());
-            client.create(created);
-            return created;
-        });
+            try {
+                client.create(created);
+            } catch (Exception e) {
+                // Two callers can reach this at once; whoever loses simply updates the
+                // record the winner wrote instead of failing the whole request.
+                log.debug("Mail channel storage was created by another caller", e);
+            }
+            secret = client.fetch(Secret.class, OWN_SECRET)
+                .orElseThrow(() -> new IllegalStateException("无法创建发信配置存储"));
+        }
         if (secret.getStringData() == null) {
             secret.setStringData(new HashMap<>());
         }

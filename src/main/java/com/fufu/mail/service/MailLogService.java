@@ -8,6 +8,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.Executors;
@@ -109,7 +110,7 @@ public class MailLogService {
     /** Drops records past the retention window and then trims the oldest overflow. */
     public int cleanup(int retentionDays, int maxLogs) {
         var records = new ArrayList<>(all());
-        var removed = 0;
+        var removed = new LinkedHashSet<String>();
         if (retentionDays > 0) {
             var cutoff = Instant.now().minus(Duration.ofDays(retentionDays));
             for (var record : records) {
@@ -118,46 +119,53 @@ public class MailLogService {
                 var createdAt = sentAt != null ? sentAt : record.getMetadata().getCreationTimestamp();
                 if (createdAt != null && createdAt.isBefore(cutoff)) {
                     client.delete(record);
-                    removed++;
+                    removed.add(record.getMetadata().getName());
                 }
             }
         }
-        if (maxLogs > 0 && records.size() - removed > maxLogs) {
+        if (maxLogs > 0) {
             var survivors = records.stream()
-                .filter(record -> client.fetch(MailSendLog.class, record.getMetadata().getName()).isPresent())
+                .filter(record -> !removed.contains(record.getMetadata().getName()))
                 .toList();
             var overflow = survivors.size() - maxLogs;
             for (var index = 0; index < overflow; index++) {
                 // The listing is newest first, so the tail holds the oldest records.
                 client.delete(survivors.get(survivors.size() - 1 - index));
-                removed++;
+                removed.add(survivors.get(survivors.size() - 1 - index).getMetadata().getName());
             }
         }
-        if (removed > 0) {
-            log.info("Removed {} mail records past retention", removed);
+        if (!removed.isEmpty()) {
+            log.info("Removed {} mail records past retention", removed.size());
         }
-        return removed;
+        return removed.size();
     }
 
-    public long count(boolean success) {
-        return all().stream()
-            .filter(record -> record.getSpec() != null)
-            .filter(record -> success ? "SUCCESS".equalsIgnoreCase(record.getSpec().getStatus())
-                : "FAILED".equalsIgnoreCase(record.getSpec().getStatus()))
-            .count();
-    }
-
-    public long countToday(boolean success) {
+    /** One pass over the history for every counter the overview shows. */
+    public Counters counters() {
         var start = LocalDate.now(ZoneId.systemDefault()).atStartOfDay(ZoneId.systemDefault()).toInstant();
-        return all().stream()
-            .filter(record -> record.getSpec() != null)
-            .filter(record -> {
-                var sentAt = record.getSpec().getSentAt();
-                return sentAt != null && !sentAt.isBefore(start);
-            })
-            .filter(record -> success ? "SUCCESS".equalsIgnoreCase(record.getSpec().getStatus())
-                : "FAILED".equalsIgnoreCase(record.getSpec().getStatus()))
-            .count();
+        long sent = 0;
+        long failed = 0;
+        long sentToday = 0;
+        for (var record : all()) {
+            var spec = record.getSpec();
+            if (spec == null) {
+                continue;
+            }
+            var success = "SUCCESS".equalsIgnoreCase(spec.getStatus());
+            if (success) {
+                sent++;
+            } else if ("FAILED".equalsIgnoreCase(spec.getStatus())) {
+                failed++;
+            }
+            var sentAt = spec.getSentAt();
+            if (success && sentAt != null && !sentAt.isBefore(start)) {
+                sentToday++;
+            }
+        }
+        return new Counters(sent, failed, sentToday);
+    }
+
+    public record Counters(long sent, long failed, long sentToday) {
     }
 
     private MailDto.LogView toView(MailSendLog record) {

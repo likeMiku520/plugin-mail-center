@@ -27,15 +27,16 @@ public class MailConsoleService {
         var triggers = triggerService.listViews();
         var resolved = channelStore.resolve();
         var channel = channelStore.load();
+        var counters = logService.counters();
         return new MailDto.Overview(
             groups.stream().mapToInt(group -> group.templates().size()).sum(),
             groups.size(),
             custom.size(),
             triggers.size(),
             (int) triggers.stream().filter(MailDto.TriggerView::enabled).count(),
-            logService.count(true),
-            logService.count(false),
-            logService.countToday(true),
+            counters.sent(),
+            counters.failed(),
+            counters.sentToday(),
             resolved.source(),
             resolved.usable(),
             resolved.problem(),
@@ -43,8 +44,12 @@ public class MailConsoleService {
             channel.apiKey());
     }
 
+    /**
+     * Reads the channel for display. Deliberately read only: the trigger endpoint is
+     * reachable without a session, and a read path there must never write storage.
+     */
     public MailDto.ChannelView channelView() {
-        var channel = channelStore.loadOrCreateWithApiKey();
+        var channel = channelStore.load();
         var resolved = channelStore.resolve();
         return new MailDto.ChannelView(
             channel.sourceOrDefault(),

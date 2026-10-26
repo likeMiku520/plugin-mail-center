@@ -230,7 +230,7 @@ public class MailCenterEndpoint implements CustomEndpoint {
                 new MailDto.ApiResponse(false, "请求过于频繁，请稍后再试"));
         }
         var channel = consoleService.channelView();
-        if (!channel.apiEnabled()) {
+        if (!channel.apiEnabled() || channel.apiKey() == null || channel.apiKey().isBlank()) {
             return new TriggerOutcome(HttpStatus.FORBIDDEN,
                 new MailDto.ApiResponse(false, "触发接口尚未启用"));
         }
