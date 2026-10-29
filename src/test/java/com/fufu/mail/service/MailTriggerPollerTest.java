@@ -11,7 +11,7 @@ import org.junit.jupiter.api.Test;
 
 class MailTriggerPollerTest {
 
-    private final MailTriggerPoller poller = new MailTriggerPoller(null, null, null, null, null);
+    private final MailTriggerPoller poller = new MailTriggerPoller(null, null, null, null, null, null);
 
     @Test
     void runsWhenNoConditionIsConfigured() {

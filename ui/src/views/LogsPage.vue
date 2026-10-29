@@ -55,7 +55,21 @@ function sourceLabel(value?: string) {
   if (value === 'MANUAL') return '手动发送'
   if (value === 'API') return '触发接口'
   if (value === 'TRIGGER') return '自动规则'
+  if (value === 'SITE') return '站点通知'
   return value || '—'
+}
+
+function statusLabel(value?: string) {
+  if (value === 'SUCCESS') return '已发送'
+  if (value === 'SENT') return '站点已发出'
+  if (value === 'SKIPPED') return '未发送'
+  return '失败'
+}
+
+function statusClass(value?: string) {
+  if (value === 'SUCCESS' || value === 'SENT') return 'mc-tag mc-tag--primary'
+  if (value === 'SKIPPED') return 'mc-tag'
+  return 'mc-tag mc-tag--danger'
 }
 
 onMounted(load)
@@ -66,7 +80,7 @@ onMounted(load)
     <div class="mc-head">
       <div>
         <h2>发送记录</h2>
-        <p>每一次发信都会留档，成功失败、耗时和错误原因都能查到。</p>
+        <p>插件自己发出的邮件都会留档，成功失败、耗时和错误原因都能查到；站点自己发出的站内通知也会一并收录。</p>
       </div>
       <div class="mc-row">
         <button class="mc-btn" type="button" @click="load">刷新</button>
@@ -84,6 +98,8 @@ onMounted(load)
             <option value="">全部</option>
             <option value="SUCCESS">成功</option>
             <option value="FAILED">失败</option>
+            <option value="SKIPPED">未发送</option>
+            <option value="SENT">站点通知</option>
           </select>
         </label>
         <label class="mc-field" style="margin: 0; flex: 1; min-width: 200px">
@@ -106,8 +122,8 @@ onMounted(load)
             <div class="mc-item__main">
               <div class="mc-item__title">
                 <span>{{ item.subject || '（无标题）' }}</span>
-                <span :class="['mc-tag', item.status === 'SUCCESS' ? 'mc-tag--primary' : 'mc-tag--danger']">
-                  {{ item.status === 'SUCCESS' ? '已发送' : '失败' }}
+                <span :class="statusClass(item.status)">
+                  {{ statusLabel(item.status) }}
                 </span>
                 <span class="mc-tag">{{ sourceLabel(item.source) }}</span>
               </div>
@@ -121,7 +137,11 @@ onMounted(load)
                 <template v-if="item.durationMs"> · 耗时 {{ item.durationMs }} ms</template>
                 <template v-if="item.triggerName"> · 规则 {{ item.triggerName }}</template>
               </div>
-              <div v-if="item.error" class="mc-item__meta" style="color: var(--mc-danger)">
+              <div
+                v-if="item.error"
+                class="mc-item__meta"
+                :style="{ color: item.status === 'SKIPPED' ? 'var(--mc-text-faint)' : 'var(--mc-danger)' }"
+              >
                 {{ item.error }}
               </div>
             </div>

@@ -1,14 +1,18 @@
 package com.fufu.mail.service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fufu.mail.dto.MailDto;
 import java.util.Map;
 import run.halo.app.extension.Extension;
+import run.halo.app.infra.utils.JsonUtils;
 
 /**
  * Reads the links plugin's {@code LinkApplication} extension without linking against it.
  * The plugin is optional, so its classes are never referenced here; everything is read
  * from the serialized form.
+ *
+ * <p>The serialization goes through Halo's own mapper. A locally created {@code ObjectMapper}
+ * cannot write {@code Instant}, so every {@code Metadata} would fail to serialize and each
+ * event would be dropped without a trace.
  */
 public final class LinkApplications {
 
@@ -20,16 +24,16 @@ public final class LinkApplications {
     public static final String STATUS_APPROVED = "APPROVED";
     public static final String STATUS_REJECTED = "REJECTED";
 
-    private static final ObjectMapper MAPPER = new ObjectMapper();
-
     private LinkApplications() {
     }
 
-    /** Cheap check that decides whether a watcher event is worth parsing. */
+    /**
+     * Matches on the kind only. The apiVersion of an extension read back from the store
+     * is not always the full group/version pair, so relying on it silently dropped every
+     * event; kind names are unique enough for this plugin.
+     */
     public static boolean isLinkApplication(Extension extension) {
-        return extension != null
-            && API_VERSION.equals(extension.getApiVersion())
-            && KIND.equals(extension.getKind());
+        return extension != null && KIND.equals(extension.getKind());
     }
 
     public static MailDto.LinkApplicationView toView(Extension extension) {
@@ -38,7 +42,7 @@ public final class LinkApplications {
         }
         try {
             @SuppressWarnings("unchecked")
-            Map<String, Object> data = MAPPER.convertValue(extension, Map.class);
+            Map<String, Object> data = JsonUtils.mapper().convertValue(extension, Map.class);
             return toView(data);
         } catch (Exception e) {
             return null;
@@ -48,9 +52,6 @@ public final class LinkApplications {
     @SuppressWarnings("unchecked")
     static MailDto.LinkApplicationView toView(Map<String, Object> data) {
         if (data == null) {
-            return null;
-        }
-        if (data.get("apiVersion") != null && !API_VERSION.equals(data.get("apiVersion"))) {
             return null;
         }
         if (data.get("kind") != null && !KIND.equals(data.get("kind"))) {

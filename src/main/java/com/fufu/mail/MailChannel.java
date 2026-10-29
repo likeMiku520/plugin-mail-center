@@ -20,7 +20,8 @@ public record MailChannel(
     String encryption,
     Boolean apiEnabled,
     String apiKey,
-    Integer rateLimitPerMinute) {
+    Integer rateLimitPerMinute,
+    Boolean linkDefaultsSeeded) {
 
     public static final String SOURCE_HALO = "halo";
     public static final String SOURCE_CUSTOM = "custom";
@@ -28,7 +29,18 @@ public record MailChannel(
     public static final String DEFAULT_NOTIFIER_DESCRIPTOR = "default-email-notifier";
 
     public static MailChannel empty() {
-        return new MailChannel(null, null, null, null, null, null, null, null, null, null, null, null);
+        return new MailChannel(null, null, null, null, null, null, null, null, null, null, null,
+            null, null);
+    }
+
+    /** True once the friend link defaults were created; later deletions are left alone. */
+    public boolean linkDefaultsSeededOrDefault() {
+        return Boolean.TRUE.equals(linkDefaultsSeeded);
+    }
+
+    public MailChannel withLinkDefaultsSeeded() {
+        return new MailChannel(source, notifierDescriptor, host, port, username, password, sender,
+            displayName, encryption, apiEnabled, apiKey, rateLimitPerMinute, true);
     }
 
     public String sourceOrDefault() {
@@ -90,6 +102,6 @@ public record MailChannel(
 
     public MailChannel withApiKey(String key) {
         return new MailChannel(source, notifierDescriptor, host, port, username, password, sender,
-            displayName, encryption, apiEnabled, key, rateLimitPerMinute);
+            displayName, encryption, apiEnabled, key, rateLimitPerMinute, linkDefaultsSeeded);
     }
 }

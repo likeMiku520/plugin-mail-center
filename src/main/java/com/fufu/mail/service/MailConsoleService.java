@@ -92,7 +92,8 @@ public class MailConsoleService {
             payload.encryption() == null ? current.encryptionOrDefault() : payload.encryption(),
             payload.apiEnabled() == null ? current.apiEnabled() : payload.apiEnabled(),
             apiKey,
-            payload.rateLimitPerMinute() == null ? current.rateLimitPerMinute() : payload.rateLimitPerMinute());
+            payload.rateLimitPerMinute() == null ? current.rateLimitPerMinute() : payload.rateLimitPerMinute(),
+            current.linkDefaultsSeeded());
         channelStore.save(updated);
         return channelView();
     }

@@ -53,6 +53,7 @@ public class MailTriggerPoller {
     private final MailTriggerService triggerService;
     private final MailDispatchService dispatch;
     private final MailRecipientService recipients;
+    private final SiteMailCollector siteMailCollector;
 
     private ScheduledExecutorService scheduler;
     private volatile Instant lastScanAt;
@@ -106,6 +107,7 @@ public class MailTriggerPoller {
             return;
         }
         lastScanAt = now;
+        siteMailCollector.collect(settings.triggerLookbackHoursOrDefault());
         var enabled = triggerService.listEnabled();
         if (enabled.isEmpty()) {
             return;

@@ -72,16 +72,24 @@ public class LinkApplicationWatcher implements Watcher {
      */
     @Override
     public void onUpdate(Extension oldExtension, Extension newExtension) {
-        if (disposed) {
-            return;
-        }
         try {
+            if (disposed) {
+                return;
+            }
             if (!LinkApplications.isLinkApplication(newExtension)) {
                 return;
             }
             var previous = LinkApplications.toView(oldExtension);
             var current = LinkApplications.toView(newExtension);
-            if (current == null || !LinkApplications.isDecided(current.status())) {
+            if (current == null) {
+                log.warn("Link application update was unreadable: {}",
+                    newExtension.getMetadata() == null ? "unknown"
+                        : newExtension.getMetadata().getName());
+                return;
+            }
+            log.info("Link application {} moved from {} to {}", current.name(),
+                previous == null ? "(new)" : previous.status(), current.status());
+            if (!LinkApplications.isDecided(current.status())) {
                 return;
             }
             var from = previous == null ? null : previous.status();
@@ -90,6 +98,7 @@ public class LinkApplicationWatcher implements Watcher {
             }
             var executor = worker;
             if (executor == null) {
+                log.warn("Link application {} was decided but the worker is gone", current.name());
                 return;
             }
             executor.submit(() -> {
@@ -100,7 +109,7 @@ public class LinkApplicationWatcher implements Watcher {
                 }
             });
         } catch (Exception e) {
-            log.debug("Ignored an unreadable link application update", e);
+            log.warn("Ignored an unreadable link application update", e);
         }
     }
 
@@ -116,8 +125,13 @@ public class LinkApplicationWatcher implements Watcher {
         var variables = variablesOf(application);
         var actorEmail = applicantEmail(application);
         for (var trigger : triggers) {
+            var triggerName = trigger.getMetadata().getName();
             var emails = resolveRecipients(trigger.getSpec(), actorEmail);
             if (emails.isEmpty()) {
+                log.info("Link application [{}] matched rule [{}] but has no address to answer",
+                    application.name(), triggerName);
+                note(trigger, application, null, "这条规则匹配到了友链申请，但没有可用的收件地址："
+                    + "申请里没填邮箱，评论来源的作者也不是邮箱身份。");
                 continue;
             }
             var templateType = trigger.getSpec().getTemplateType() == null
@@ -126,18 +140,20 @@ public class LinkApplicationWatcher implements Watcher {
             try {
                 template = dispatch.resolve(templateType, trigger.getSpec().getTemplateName());
             } catch (RuntimeException e) {
-                log.debug("Link rule [{}] points at a template that is gone",
-                    trigger.getMetadata().getName(), e);
+                log.warn("Link rule [{}] points at a template that is gone: {}", triggerName,
+                    trigger.getSpec().getTemplateName());
+                note(trigger, application, emails.get(0), "规则指向的邮件模板已经不存在："
+                    + trigger.getSpec().getTemplateName() + "，请到「邮件中心」重新选一个模板。");
                 continue;
             }
             int sent = 0;
             int failed = 0;
             int total = 0;
             for (var email : emails) {
-                var dedupKey = trigger.getMetadata().getName() + '|' + eventType.name() + '|'
+                var dedupKey = triggerName + '|' + eventType.name() + '|'
                     + application.name() + '|' + email;
                 var result = dispatch.deliver(template, email, application.displayName(), variables,
-                    null, "TRIGGER", trigger.getMetadata().getName(), dedupKey);
+                    null, "TRIGGER", triggerName, dedupKey);
                 total++;
                 if (result.success()) {
                     sent++;
@@ -146,11 +162,22 @@ public class LinkApplicationWatcher implements Watcher {
                 }
             }
             if (total > 0) {
-                triggerService.recordRun(trigger.getMetadata().getName(),
+                triggerService.recordRun(triggerName,
                     new MailDto.SendSummary(total, sent, failed, List.of()),
                     "最近一次命中：" + application.displayName());
             }
         }
+    }
+
+    /** Leaves a visible trace when a decided application could not be answered. */
+    private void note(MailTrigger trigger, MailDto.LinkApplicationView application, String email,
+                      String reason) {
+        var spec = trigger.getSpec();
+        var dedupKey = trigger.getMetadata().getName() + "|SKIPPED|" + application.name();
+        dispatch.recordNote(email, application.displayName(), null,
+            MailDispatchService.STATUS_SKIPPED, reason, "TRIGGER",
+            spec.getTemplateType() == null ? "CUSTOM" : spec.getTemplateType().name(),
+            spec.getTemplateName(), null, trigger.getMetadata().getName(), dedupKey, null);
     }
 
     /** Values a friend link template can use. */

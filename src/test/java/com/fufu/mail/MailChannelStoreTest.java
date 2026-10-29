@@ -47,7 +47,7 @@ class MailChannelStoreTest {
     @Test
     void resolvesCustomConfigurationWithSensibleDefaults() {
         var channel = new MailChannel(MailChannel.SOURCE_CUSTOM, null, "smtp.example.com", null,
-            "user@example.com", "secret", null, null, null, true, "mc_key", 30);
+            "user@example.com", "secret", null, null, null, true, "mc_key", 30, null);
 
         assertThat(channel.usesHaloConfig()).isFalse();
         assertThat(channel.portOrDefault()).isEqualTo(465);
@@ -59,7 +59,7 @@ class MailChannelStoreTest {
     @Test
     void normalisesTheEncryptionValue() {
         var channel = new MailChannel(null, null, null, null, null, null, null, null, "tls",
-            null, null, null);
+            null, null, null, null);
         assertThat(channel.encryptionOrDefault()).isEqualTo("TLS");
         assertThat(channel.sourceOrDefault()).isEqualTo(MailChannel.SOURCE_HALO);
         assertThat(channel.apiEnabledOrDefault()).isFalse();
@@ -81,13 +81,14 @@ class MailChannelStoreTest {
         var mapper = new ObjectMapper();
         var channel = new MailChannel(MailChannel.SOURCE_CUSTOM, "default-email-notifier",
             "smtp.example.com", 587, "user@example.com", "s3cret", "noreply@example.com",
-            "fufu 的博客", "TLS", true, "mc_abc", 120);
+            "fufu 的博客", "TLS", true, "mc_abc", 120, true);
 
         var restored = mapper.readValue(mapper.writeValueAsString(channel), MailChannel.class);
 
         assertThat(restored).isEqualTo(channel);
         assertThat(restored.password()).isEqualTo("s3cret");
         assertThat(restored.encryptionOrDefault()).isEqualTo("TLS");
+        assertThat(restored.linkDefaultsSeededOrDefault()).isTrue();
     }
 
     @Test

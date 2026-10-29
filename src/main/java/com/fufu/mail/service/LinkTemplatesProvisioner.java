@@ -1,5 +1,6 @@
 package com.fufu.mail.service;
 
+import com.fufu.mail.MailChannelStore;
 import com.fufu.mail.dto.MailDto;
 import com.fufu.mail.model.MailTrigger;
 import java.util.List;
@@ -30,50 +31,51 @@ public class LinkTemplatesProvisioner {
     private final ExtensionClient client;
     private final MailTemplateCatalogService catalog;
     private final MailTriggerService triggerService;
+    private final MailChannelStore channelStore;
 
     public boolean linksPluginPresent() {
         return client.fetch(Plugin.class, LINKS_PLUGIN).isPresent();
     }
 
     /**
-     * Creates the defaults when the links plugin is installed and none of them exist
-     * yet. Deleting one of them is respected: as long as any survives, nothing comes
-     * back on the next start.
+     * Creates the defaults once the links plugin is installed. It runs again only when the
+     * previous attempt never finished, which is how a half-written set from an interrupted
+     * start gets repaired; once it has completed, deleting any of the four is respected.
      */
     public void provision() {
         try {
             if (!linksPluginPresent()) {
                 return;
             }
-            if (anyExists()) {
+            var channel = channelStore.load();
+            if (channel.linkDefaultsSeededOrDefault()) {
                 return;
             }
-            var approved = createTemplate(APPROVED_TEMPLATE, approvedPayload());
-            var rejected = createTemplate(REJECTED_TEMPLATE, rejectedPayload());
-            createTrigger(APPROVED_TRIGGER, "友链申请通过后回信", MailTrigger.EventType.LINK_APPROVED,
-                approved);
-            createTrigger(REJECTED_TRIGGER, "友链申请拒绝后回信", MailTrigger.EventType.LINK_REJECTED,
-                rejected);
+            createTemplateIfMissing(APPROVED_TEMPLATE, approvedPayload());
+            createTemplateIfMissing(REJECTED_TEMPLATE, rejectedPayload());
+            createTriggerIfMissing(APPROVED_TRIGGER, "友链申请通过后回信",
+                MailTrigger.EventType.LINK_APPROVED, APPROVED_TEMPLATE);
+            createTriggerIfMissing(REJECTED_TRIGGER, "友链申请拒绝后回信",
+                MailTrigger.EventType.LINK_REJECTED, REJECTED_TEMPLATE);
+            channelStore.save(channel.withLinkDefaultsSeeded());
             log.info("Provisioned friend link reply templates and rules");
         } catch (Exception e) {
             log.warn("Failed to provision friend link reply defaults", e);
         }
     }
 
-    private boolean anyExists() {
-        return catalog.findCustom(APPROVED_TEMPLATE).isPresent()
-            || catalog.findCustom(REJECTED_TEMPLATE).isPresent()
-            || triggerService.find(APPROVED_TRIGGER).isPresent()
-            || triggerService.find(REJECTED_TRIGGER).isPresent();
-    }
-
-    private String createTemplate(String name, MailDto.CustomTemplatePayload payload) {
+    private void createTemplateIfMissing(String name, MailDto.CustomTemplatePayload payload) {
+        if (catalog.findCustom(name).isPresent()) {
+            return;
+        }
         catalog.createCustom(name, payload, true);
-        return name;
     }
 
-    private void createTrigger(String name, String displayName, MailTrigger.EventType eventType,
-                               String templateName) {
+    private void createTriggerIfMissing(String name, String displayName,
+                                        MailTrigger.EventType eventType, String templateName) {
+        if (triggerService.find(name).isPresent()) {
+            return;
+        }
         var payload = new MailDto.TriggerPayload(name, displayName, true, eventType.name(), "CUSTOM",
             templateName, MailTrigger.RecipientStrategy.EVENT_ACTOR.name(), List.of(), null);
         triggerService.create(payload, true);

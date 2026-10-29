@@ -188,6 +188,56 @@ public class MailDispatchService {
         return new MailDto.SendResult(email, recipientName, outcome.success(), outcome.error(), logName);
     }
 
+    /** Outcome recorded for something that produced no mail of our own. */
+    public static final String STATUS_SKIPPED = "SKIPPED";
+
+    /** Outcome recorded for mail the site itself sent, where delivery cannot be observed. */
+    public static final String STATUS_SENT_BY_SITE = "SENT";
+
+    /**
+     * Records an outcome that produced no mail: a rule that matched but had nobody to send
+     * to, a template that was deleted, or a notification the site sent on its own. Without
+     * these rows the log looks empty exactly when something is wrong.
+     */
+    public String recordNote(String email, String recipientName, String subject, String status,
+                             String reason, String source, String templateType, String templateName,
+                             String templateDisplayName, String triggerName, String dedupKey,
+                             Instant sentAt) {
+        var logName = dedupKey == null ? null : deterministicName(dedupKey);
+        if (logName != null && client.fetch(MailSendLog.class, logName).isPresent()) {
+            return logName;
+        }
+        try {
+            var record = new MailSendLog();
+            var metadata = new Metadata();
+            if (logName == null) {
+                metadata.setGenerateName(MailSendLog.DETERMINISTIC_PREFIX);
+            } else {
+                metadata.setName(logName);
+            }
+            record.setMetadata(metadata);
+            var spec = new MailSendLog.Spec();
+            spec.setRecipient(email == null || email.isBlank() ? "（无地址）" : email);
+            spec.setRecipientName(recipientName);
+            spec.setTemplateType(templateType);
+            spec.setTemplateName(templateName);
+            spec.setTemplateDisplayName(templateDisplayName);
+            spec.setSubject(subject);
+            spec.setStatus(status);
+            spec.setError(reason);
+            spec.setSource(source);
+            spec.setTriggerName(triggerName);
+            spec.setDedupKey(dedupKey);
+            spec.setSentAt(sentAt == null ? Instant.now() : sentAt);
+            record.setSpec(spec);
+            client.create(record);
+            return record.getMetadata().getName();
+        } catch (Exception e) {
+            log.warn("Failed to write a mail note for [{}]", email, e);
+            return null;
+        }
+    }
+
     public static String normalizeEmail(String email) {
         if (email == null) {
             return null;

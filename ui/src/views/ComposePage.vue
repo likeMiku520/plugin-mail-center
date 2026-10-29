@@ -18,8 +18,12 @@ const loading = ref(true)
 const error = ref('')
 const notice = ref('')
 
-const templateType = ref<'CUSTOM' | 'BUILTIN'>('CUSTOM')
+const templateType = ref<'CUSTOM' | 'BUILTIN' | ''>('')
 const templateName = ref('')
+
+watch(templateType, () => {
+  templateName.value = ''
+})
 const subjectOverride = ref('')
 const values = ref<Record<string, string>>({})
 
@@ -123,18 +127,6 @@ async function load() {
     users.value = directory.users
     visitors.value = directory.visitors
     notice.value = stats.channelUsable ? '' : stats.channelProblem || ''
-    if (!templateName.value) {
-      if (selectableCustom.value.length) {
-        templateType.value = 'CUSTOM'
-        templateName.value = selectableCustom.value[0].name
-      } else {
-        const firstGroup = selectableGroups.value[0]
-        if (firstGroup) {
-          templateType.value = 'BUILTIN'
-          templateName.value = firstGroup.templates[0].name
-        }
-      }
-    }
   } catch (e) {
     error.value = errorMessage(e)
   } finally {
@@ -181,6 +173,10 @@ async function openPreview() {
 }
 
 async function send() {
+  if (!templateType.value) {
+    error.value = '请先选择模板来源'
+    return
+  }
   if (!templateName.value) {
     error.value = '请先选择邮件模板'
     return
@@ -264,6 +260,7 @@ onMounted(load)
           <label class="mc-field">
             <span>模板来源</span>
             <select v-model="templateType" class="mc-select">
+              <option value="">请选择</option>
               <option value="CUSTOM">自定义模板（{{ selectableCustom.length }}）</option>
               <option value="BUILTIN">站内模板（Halo 通知）</option>
             </select>
@@ -271,7 +268,9 @@ onMounted(load)
           <label class="mc-field">
             <span>模板</span>
             <select v-model="templateName" class="mc-select">
-              <template v-if="templateType === 'CUSTOM'">
+              <option v-if="!templateType" value="">请先选择模板来源</option>
+              <template v-else-if="templateType === 'CUSTOM'">
+                <option v-if="selectableCustom.length === 0" value="">还没有可用的自定义模板</option>
                 <option v-for="item in selectableCustom" :key="item.name" :value="item.name">
                   {{ item.displayName }}
                 </option>
