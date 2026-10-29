@@ -351,27 +351,36 @@
 
 .mc-tabs {
   display: flex;
-  gap: 4px;
-  padding: 3px;
+  gap: 8px;
+  padding: 5px;
   margin-bottom: 14px;
-  background: #f1f5f9;
-  border-radius: 10px;
+  background: var(--mc-primary-soft);
+  border: 1px solid var(--mc-primary-line);
+  border-radius: 12px;
 
   button {
     flex: 1;
-    height: 30px;
+    height: 34px;
+    padding: 0 12px;
     color: var(--mc-text-soft);
-    font-size: 12.5px;
+    font-size: 13px;
     font-weight: 560;
-    background: transparent;
-    border: 0;
-    border-radius: 8px;
+    background: #fff;
+    border: 1px solid var(--mc-border);
+    border-radius: 9px;
     cursor: pointer;
+    transition: all 0.16s ease;
+
+    &:hover {
+      color: var(--mc-primary-dark);
+      border-color: var(--mc-primary-line);
+    }
 
     &.is-active {
-      color: var(--mc-primary-dark);
-      background: #fff;
-      box-shadow: 0 1px 3px rgb(15 23 42 / 10%);
+      color: #fff;
+      background: var(--mc-primary);
+      border-color: var(--mc-primary);
+      box-shadow: 0 2px 8px -2px rgb(57 197 187 / 55%);
     }
   }
 }

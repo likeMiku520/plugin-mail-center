@@ -20,6 +20,7 @@ public class MailConsoleService {
     private final MailLogService logService;
     private final MailChannelStore channelStore;
     private final MailTriggerPoller poller;
+    private final LinkTemplatesProvisioner linkProvisioner;
 
     public MailDto.Overview overview() {
         var groups = catalog.listBuiltinGroups();
@@ -41,7 +42,8 @@ public class MailConsoleService {
             resolved.usable(),
             resolved.problem(),
             channel.apiEnabledOrDefault(),
-            channel.apiKey());
+            channel.apiKey(),
+            linkProvisioner.linksPluginPresent());
     }
 
     /**

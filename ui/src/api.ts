@@ -19,6 +19,8 @@ export interface BuiltinTemplate {
   htmlBody: string
   rawBody: string
   createdAt: string
+  hidden: boolean
+  edited: boolean
 }
 
 export interface BuiltinGroup {
@@ -40,6 +42,7 @@ export interface CustomTemplate {
   variables: TemplateVariable[]
   enabled: boolean
   createdAt: string
+  hidden: boolean
 }
 
 export interface Recipient {
@@ -142,6 +145,7 @@ export interface Overview {
   channelProblem: string
   apiEnabled: boolean
   apiKey: string
+  linksPluginDetected: boolean
 }
 
 export interface ChannelView {
@@ -190,10 +194,26 @@ export const api = {
     axios.post<CustomTemplate>(`${API_BASE}/templates`, payload).then((r) => r.data),
 
   updateTemplate: (name: string, payload: Partial<CustomTemplate>) =>
-    axios.put<CustomTemplate>(`${API_BASE}/templates/${name}`, payload).then((r) => r.data),
+    axios.put<CustomTemplate>(`${API_BASE}/templates/custom/${name}`, payload).then((r) => r.data),
 
   deleteTemplate: (name: string) =>
-    axios.delete<ApiResponse>(`${API_BASE}/templates/${name}`).then((r) => r.data),
+    axios.delete<ApiResponse>(`${API_BASE}/templates/custom/${name}`).then((r) => r.data),
+
+  updateBuiltinTemplate: (name: string, payload: { title: string; htmlBody: string; rawBody: string }) =>
+    axios.put<BuiltinTemplate>(`${API_BASE}/templates/builtin/${name}`, payload).then((r) => r.data),
+
+  deleteBuiltinTemplate: (name: string) =>
+    axios.delete<ApiResponse>(`${API_BASE}/templates/builtin/${name}`).then((r) => r.data),
+
+  resetBuiltinTemplate: (name: string) =>
+    axios.post<BuiltinTemplate>(`${API_BASE}/templates/builtin/${name}/reset`).then((r) => r.data),
+
+  hideTemplate: (type: 'BUILTIN' | 'CUSTOM', name: string, hidden: boolean) => {
+    const base = type === 'CUSTOM' ? 'custom' : 'builtin'
+    return axios
+      .post<ApiResponse>(`${API_BASE}/templates/${base}/${name}/hidden`, { hidden })
+      .then((r) => r.data)
+  },
 
   validateTemplate: (payload: Record<string, unknown>) =>
     axios.post<ApiResponse>(`${API_BASE}/templates/validate`, payload).then((r) => r.data),
@@ -238,10 +258,12 @@ export const EVENT_TYPES = [
   { value: 'COMMENT_CREATED', label: '文章或页面收到新评论' },
   { value: 'USER_REGISTERED', label: '有新用户注册' },
   { value: 'POST_PUBLISHED', label: '有新文章发布' },
+  { value: 'LINK_APPROVED', label: '友链申请审核通过（需装链接管理插件）' },
+  { value: 'LINK_REJECTED', label: '友链申请被拒绝（需装链接管理插件）' },
 ]
 
 export const RECIPIENT_STRATEGIES = [
-  { value: 'EVENT_ACTOR', label: '事件当事人（评论者 / 新用户 / 文章作者）' },
+  { value: 'EVENT_ACTOR', label: '事件当事人（评论者 / 新用户 / 文章作者 / 友链申请人）' },
   { value: 'POST_AUTHOR', label: '被评论文章的作者' },
   { value: 'FIXED', label: '只发给下面填写的固定邮箱' },
 ]

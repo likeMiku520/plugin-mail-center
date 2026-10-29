@@ -55,6 +55,14 @@ const variables = computed<TemplateVariable[]>(() => {
 const visibleUsers = computed(() => filterList(users.value))
 const visibleVisitors = computed(() => filterList(visitors.value))
 
+/** Hidden templates and disabled custom templates never show up in the pickers. */
+const selectableCustom = computed(() => custom.value.filter((item) => !item.hidden && item.enabled))
+const selectableGroups = computed(() =>
+  groups.value
+    .map((group) => ({ ...group, templates: group.templates.filter((item) => !item.hidden) }))
+    .filter((group) => group.templates.length > 0)
+)
+
 function filterList(list: Recipient[]): Recipient[] {
   const needle = keyword.value.trim().toLowerCase()
   if (!needle) {
@@ -116,11 +124,11 @@ async function load() {
     visitors.value = directory.visitors
     notice.value = stats.channelUsable ? '' : stats.channelProblem || ''
     if (!templateName.value) {
-      if (data.custom.length) {
+      if (selectableCustom.value.length) {
         templateType.value = 'CUSTOM'
-        templateName.value = data.custom[0].name
+        templateName.value = selectableCustom.value[0].name
       } else {
-        const firstGroup = data.groups.find((group) => group.templates.length > 0)
+        const firstGroup = selectableGroups.value[0]
         if (firstGroup) {
           templateType.value = 'BUILTIN'
           templateName.value = firstGroup.templates[0].name
@@ -256,7 +264,7 @@ onMounted(load)
           <label class="mc-field">
             <span>模板来源</span>
             <select v-model="templateType" class="mc-select">
-              <option value="CUSTOM">自定义模板（{{ custom.length }}）</option>
+              <option value="CUSTOM">自定义模板（{{ selectableCustom.length }}）</option>
               <option value="BUILTIN">站内模板（Halo 通知）</option>
             </select>
           </label>
@@ -264,13 +272,13 @@ onMounted(load)
             <span>模板</span>
             <select v-model="templateName" class="mc-select">
               <template v-if="templateType === 'CUSTOM'">
-                <option v-for="item in custom" :key="item.name" :value="item.name">
+                <option v-for="item in selectableCustom" :key="item.name" :value="item.name">
                   {{ item.displayName }}
                 </option>
               </template>
               <template v-else>
                 <optgroup
-                  v-for="group in groups.filter((item) => item.templates.length > 0)"
+                  v-for="group in selectableGroups"
                   :key="group.reasonType"
                   :label="group.displayName"
                 >

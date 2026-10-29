@@ -18,9 +18,10 @@ public final class MailDto {
                                    boolean required) {
     }
 
-    /** A Halo notification template, shown read only because Halo owns it. */
+    /** A Halo notification template. Editable, but Halo owns the record. */
     public record BuiltinTemplate(String name, String reasonType, String language, String title,
-                                  String htmlBody, String rawBody, String createdAt) {
+                                  String htmlBody, String rawBody, String createdAt, boolean hidden,
+                                  boolean edited) {
     }
 
     /** All templates Halo can send for one reason, with the attributes they receive. */
@@ -33,7 +34,7 @@ public final class MailDto {
     public record CustomTemplate(String name, String displayName, String description,
                                  String subject, String content, String rawContent,
                                  List<TemplateVariable> variables, boolean enabled,
-                                 String createdAt) {
+                                 String createdAt, boolean hidden) {
     }
 
     /** One address a mail can be sent to, wherever it came from. */
@@ -79,7 +80,8 @@ public final class MailDto {
     public record Overview(int builtinTemplates, int builtinReasonTypes, int customTemplates,
                            int triggers, int enabledTriggers, long sentTotal, long failedTotal,
                            long sentToday, String channelSource, boolean channelUsable,
-                           String channelProblem, boolean apiEnabled, String apiKey) {
+                           String channelProblem, boolean apiEnabled, String apiKey,
+                           boolean linksPluginDetected) {
     }
 
     /** Channel configuration with the stored password replaced by a presence flag. */
@@ -96,6 +98,13 @@ public final class MailDto {
     public record CustomTemplatePayload(String name, String displayName, String description,
                                         String subject, String content, String rawContent,
                                         List<TemplateVariable> variables, Boolean enabled) {
+    }
+
+    /** Only the body of a system template is editable; its name belongs to Halo. */
+    public record BuiltinTemplatePayload(String title, String htmlBody, String rawBody) {
+    }
+
+    public record HiddenPayload(Boolean hidden) {
     }
 
     public record ValidatePayload(String subject, String content, String rawContent,
@@ -128,5 +137,11 @@ public final class MailDto {
     /** Body accepted by the key protected trigger endpoint. */
     public record OpenTriggerPayload(String template, List<String> to, Map<String, Object> variables,
                                      String subject) {
+    }
+
+    /** What the links plugin tells us about one application, parsed from its extension. */
+    public record LinkApplicationView(String name, String status, String displayName, String url,
+                                      String logo, String description, String email,
+                                      String backlink, String originType, String originCommentName) {
     }
 }

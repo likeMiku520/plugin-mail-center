@@ -3,6 +3,9 @@ package com.fufu.mail.service;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import org.junit.jupiter.api.Test;
+import run.halo.app.core.extension.notification.NotificationTemplate;
+import run.halo.app.extension.ExtensionUtil;
+import run.halo.app.extension.Metadata;
 
 class MailTemplateCatalogServiceTest {
 
@@ -43,5 +46,36 @@ class MailTemplateCatalogServiceTest {
         assertThat(MailTemplateCatalogService.sampleValue("url")).startsWith("https://");
         assertThat(MailTemplateCatalogService.sampleValue("email")).contains("@");
         assertThat(MailTemplateCatalogService.sampleValue(null)).isEqualTo("示例内容");
+    }
+
+    @Test
+    void marksAnEditedSystemTemplateSoHaloStopsOverwritingIt() {
+        var template = new NotificationTemplate();
+        var metadata = new Metadata();
+        metadata.setName("template-new-comment-on-post");
+        template.setMetadata(metadata);
+
+        MailTemplateCatalogService.markUserMaintained(template, true);
+
+        assertThat(ExtensionUtil.hasDoNotOverwriteLabel(template)).isTrue();
+        assertThat(template.getMetadata().getLabels())
+            .containsEntry(ExtensionUtil.DO_NOT_OVERWRITE_LABEL, "true");
+    }
+
+    @Test
+    void handsTheTemplateBackToHaloOnReset() {
+        var template = new NotificationTemplate();
+        var metadata = new Metadata();
+        metadata.setName("template-new-comment-on-post");
+        var labels = new java.util.HashMap<String, String>();
+        labels.put(ExtensionUtil.DO_NOT_OVERWRITE_LABEL, "true");
+        labels.put("halo.run/other", "keep-me");
+        metadata.setLabels(labels);
+        template.setMetadata(metadata);
+
+        MailTemplateCatalogService.markUserMaintained(template, false);
+
+        assertThat(ExtensionUtil.hasDoNotOverwriteLabel(template)).isFalse();
+        assertThat(template.getMetadata().getLabels()).containsEntry("halo.run/other", "keep-me");
     }
 }

@@ -69,8 +69,13 @@ public class MailCenterEndpoint implements CustomEndpoint {
             .GET("/templates", this::listTemplates)
             .POST("/templates", this::createTemplate)
             .POST("/templates/validate", this::validateTemplate)
-            .PUT("/templates/{name}", this::updateTemplate)
-            .DELETE("/templates/{name}", this::deleteTemplate)
+            .PUT("/templates/custom/{name}", this::updateCustomTemplate)
+            .DELETE("/templates/custom/{name}", this::deleteCustomTemplate)
+            .POST("/templates/custom/{name}/hidden", this::hideCustomTemplate)
+            .PUT("/templates/builtin/{name}", this::updateBuiltinTemplate)
+            .DELETE("/templates/builtin/{name}", this::deleteBuiltinTemplate)
+            .POST("/templates/builtin/{name}/reset", this::resetBuiltinTemplate)
+            .POST("/templates/builtin/{name}/hidden", this::hideBuiltinTemplate)
             .POST("/preview", this::preview)
             .GET("/recipients", this::recipients)
             .POST("/send", this::send)
@@ -105,18 +110,58 @@ public class MailCenterEndpoint implements CustomEndpoint {
             .flatMap(payload -> respond(() -> catalog.toCustomView(catalog.createCustom(payload))));
     }
 
-    private Mono<ServerResponse> updateTemplate(ServerRequest request) {
+    private Mono<ServerResponse> updateCustomTemplate(ServerRequest request) {
         var name = request.pathVariable("name");
         return body(request, MailDto.CustomTemplatePayload.class)
             .flatMap(payload -> respond(() -> catalog.toCustomView(catalog.updateCustom(name, payload))));
     }
 
-    private Mono<ServerResponse> deleteTemplate(ServerRequest request) {
+    private Mono<ServerResponse> deleteCustomTemplate(ServerRequest request) {
         var name = request.pathVariable("name");
         return respond(() -> {
             catalog.deleteCustom(name);
             return new MailDto.ApiResponse(true, "模板已删除");
         });
+    }
+
+    private Mono<ServerResponse> hideCustomTemplate(ServerRequest request) {
+        var name = request.pathVariable("name");
+        return body(request, MailDto.HiddenPayload.class)
+            .flatMap(payload -> respond(() -> {
+                catalog.setHidden("CUSTOM", name, Boolean.TRUE.equals(payload.hidden()));
+                return new MailDto.ApiResponse(true,
+                    Boolean.TRUE.equals(payload.hidden()) ? "模板已隐藏" : "模板已取消隐藏");
+            }));
+    }
+
+    private Mono<ServerResponse> updateBuiltinTemplate(ServerRequest request) {
+        var name = request.pathVariable("name");
+        return body(request, MailDto.BuiltinTemplatePayload.class)
+            .flatMap(payload -> respond(() -> catalog.updateBuiltin(name, payload)));
+    }
+
+    private Mono<ServerResponse> deleteBuiltinTemplate(ServerRequest request) {
+        var name = request.pathVariable("name");
+        return respond(() -> {
+            catalog.deleteBuiltin(name);
+            return new MailDto.ApiResponse(true,
+                "模板已删除。站内模板在 Halo 下次启动时可能被重新创建，想让它长期不出现请改用隐藏");
+        });
+    }
+
+    private Mono<ServerResponse> resetBuiltinTemplate(ServerRequest request) {
+        var name = request.pathVariable("name");
+        return respond(() -> catalog.resetBuiltin(name));
+    }
+
+    private Mono<ServerResponse> hideBuiltinTemplate(ServerRequest request) {
+        var name = request.pathVariable("name");
+        return body(request, MailDto.HiddenPayload.class)
+            .flatMap(payload -> respond(() -> {
+                catalog.setHidden("BUILTIN", name, Boolean.TRUE.equals(payload.hidden()));
+                return new MailDto.ApiResponse(true,
+                    Boolean.TRUE.equals(payload.hidden()) ? "模板已隐藏" : "模板已取消隐藏");
+            }));
     }
 
     private Mono<ServerResponse> validateTemplate(ServerRequest request) {

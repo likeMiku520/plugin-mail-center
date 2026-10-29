@@ -32,7 +32,9 @@ public class MailTrigger extends AbstractExtension {
     public enum EventType {
         COMMENT_CREATED,
         USER_REGISTERED,
-        POST_PUBLISHED
+        POST_PUBLISHED,
+        LINK_APPROVED,
+        LINK_REJECTED
     }
 
     /**

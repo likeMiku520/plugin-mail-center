@@ -36,6 +36,14 @@ const editorSaving = ref(false)
 const editorError = ref('')
 const editor = ref<EditorState>(emptyEditor())
 
+/** Hidden templates and disabled custom templates never show up in the pickers. */
+const selectableCustom = computed(() => custom.value.filter((item) => !item.hidden && item.enabled))
+const selectableGroups = computed(() =>
+  groups.value
+    .map((group) => ({ ...group, templates: group.templates.filter((item) => !item.hidden) }))
+    .filter((group) => group.templates.length > 0)
+)
+
 function emptyEditor(): EditorState {
   return {
     name: '',
@@ -85,8 +93,8 @@ async function load() {
 
 function openCreate() {
   editor.value = emptyEditor()
-  if (custom.value.length) {
-    editor.value.templateName = custom.value[0].name
+  if (selectableCustom.value.length) {
+    editor.value.templateName = selectableCustom.value[0].name
   }
   editorError.value = ''
   editorOpen.value = true
@@ -358,13 +366,13 @@ onMounted(load)
               <span>模板</span>
               <select v-model="editor.templateName" class="mc-select">
                 <template v-if="editor.templateType === 'CUSTOM'">
-                  <option v-for="item in custom" :key="item.name" :value="item.name">
+                  <option v-for="item in selectableCustom" :key="item.name" :value="item.name">
                     {{ item.displayName }}
                   </option>
                 </template>
                 <template v-else>
                   <optgroup
-                    v-for="group in groups.filter((item) => item.templates.length > 0)"
+                    v-for="group in selectableGroups"
                     :key="group.reasonType"
                     :label="group.displayName"
                   >

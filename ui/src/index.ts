@@ -12,9 +12,9 @@ import LogsPage from './views/LogsPage.vue'
 import SettingsPage from './views/SettingsPage.vue'
 import './styles/theme.scss'
 
-// Halo's console matches this against its own group ids, so the entries land in the
-// built-in "工具" section instead of creating a second group with a lookalike label.
-const GROUP = 'tool'
+// An unknown group id makes the console build a section labelled with this value,
+// which keeps every mail center page in one place instead of mixing into 工具.
+const GROUP = '邮件中心'
 
 export default definePlugin({
   components: {},

@@ -1,10 +1,12 @@
 package com.fufu.mail.service;
 
+import com.fufu.mail.MailCenterLabels;
 import com.fufu.mail.dto.MailDto;
 import com.fufu.mail.model.MailTemplate;
 import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -16,6 +18,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import run.halo.app.core.extension.notification.NotificationTemplate;
 import run.halo.app.core.extension.notification.ReasonType;
+import run.halo.app.extension.AbstractExtension;
 import run.halo.app.extension.ExtensionClient;
 import run.halo.app.extension.ExtensionUtil;
 import run.halo.app.extension.ListOptions;
@@ -23,7 +26,9 @@ import run.halo.app.extension.Metadata;
 
 /**
  * The template catalogue: every notification template Halo can send, grouped by the
- * reason that triggers it, plus the templates authored inside this plugin.
+ * reason that triggers it, plus the templates authored inside this plugin. System
+ * templates are editable; the first edit marks them as user maintained so Halo stops
+ * refreshing them from its own bundle on the next start.
  */
 @Slf4j
 @Component
@@ -36,6 +41,7 @@ public class MailTemplateCatalogService {
     private static final SecureRandom RANDOM = new SecureRandom();
 
     private final ExtensionClient client;
+    private final NotificationTemplateDefaults defaults;
 
     /** All reason types that have at least one template, in a stable display order. */
     public List<MailDto.BuiltinGroup> listBuiltinGroups() {
@@ -94,6 +100,79 @@ public class MailTemplateCatalogService {
         return client.fetch(ReasonType.class, name);
     }
 
+    /**
+     * Writes an edited body onto a system template. The label tells Halo's extension
+     * initializer to stop overwriting the record from its own bundle at the next start.
+     */
+    public MailDto.BuiltinTemplate updateBuiltin(String name, MailDto.BuiltinTemplatePayload payload) {
+        var template = requireBuiltin(name);
+        if (payload == null || (payload.title() == null || payload.title().isBlank())) {
+            throw new IllegalArgumentException("模板标题不能为空");
+        }
+        if (payload.htmlBody() == null && payload.rawBody() == null) {
+            throw new IllegalArgumentException("HTML 正文和纯文本正文至少要填一个");
+        }
+        var content = template.getSpec() == null ? null : template.getSpec().getTemplate();
+        if (content == null) {
+            content = new NotificationTemplate.Template();
+            if (template.getSpec() == null) {
+                template.setSpec(new NotificationTemplate.Spec());
+            }
+            template.getSpec().setTemplate(content);
+        }
+        content.setTitle(payload.title());
+        content.setHtmlBody(payload.htmlBody());
+        content.setRawBody(payload.rawBody());
+        markUserMaintained(template, true);
+        client.update(template);
+        return toBuiltin(template);
+    }
+
+    /** Restores the body Halo ships with and hands the record back to Halo's initializer. */
+    public MailDto.BuiltinTemplate resetBuiltin(String name) {
+        var template = requireBuiltin(name);
+        var original = defaults.find(name);
+        if (original == null) {
+            throw new IllegalArgumentException("找不到这个模板的原始内容，无法重置");
+        }
+        if (template.getSpec() == null) {
+            template.setSpec(new NotificationTemplate.Spec());
+        }
+        var content = template.getSpec().getTemplate();
+        if (content == null) {
+            content = new NotificationTemplate.Template();
+            template.getSpec().setTemplate(content);
+        }
+        content.setTitle(original.title());
+        content.setHtmlBody(original.htmlBody());
+        content.setRawBody(original.rawBody());
+        markUserMaintained(template, false);
+        client.update(template);
+        return toBuiltin(template);
+    }
+
+    /**
+     * Deletes a system template. Halo recreates its bundled templates on the next start,
+     * which the console warns about; hiding is the durable option.
+     */
+    public void deleteBuiltin(String name) {
+        client.fetch(NotificationTemplate.class, name).ifPresent(client::delete);
+    }
+
+    /** Hides or reveals a template of either kind. */
+    public void setHidden(String templateType, String name, boolean hidden) {
+        if ("CUSTOM".equalsIgnoreCase(templateType)) {
+            var template = client.fetch(MailTemplate.class, name)
+                .orElseThrow(() -> new IllegalArgumentException("自定义模板不存在：" + name));
+            MailCenterLabels.setHidden(template, hidden);
+            client.update(template);
+            return;
+        }
+        var template = requireBuiltin(name);
+        MailCenterLabels.setHidden(template, hidden);
+        client.update(template);
+    }
+
     public List<MailDto.CustomTemplate> listCustom() {
         return client.listAll(MailTemplate.class, new ListOptions(), ExtensionUtil.defaultSort())
             .stream()
@@ -111,11 +190,29 @@ public class MailTemplateCatalogService {
     }
 
     public MailTemplate createCustom(MailDto.CustomTemplatePayload payload) {
+        return createCustom(null, payload);
+    }
+
+    /** A fixed name is used by the templates this plugin provisions itself. */
+    public MailTemplate createCustom(String name, MailDto.CustomTemplatePayload payload) {
+        return createCustom(name, payload, false);
+    }
+
+    /**
+     * Labels are written before the record is created: updating an object that was just
+     * created would carry no resource version and Halo would treat it as an insert.
+     */
+    public MailTemplate createCustom(String name, MailDto.CustomTemplatePayload payload,
+                                     boolean autoProvisioned) {
         var template = new MailTemplate();
         var metadata = new Metadata();
-        metadata.setName(uniqueName(payload.name() == null || payload.name().isBlank()
-            ? payload.displayName() : payload.name()));
+        metadata.setName(name != null && !name.isBlank() ? name
+            : uniqueName(payload.name() == null || payload.name().isBlank()
+                ? payload.displayName() : payload.name()));
         template.setMetadata(metadata);
+        if (autoProvisioned) {
+            MailCenterLabels.markAutoProvisioned(template);
+        }
         template.setSpec(new MailTemplate.Spec());
         apply(template.getSpec(), payload);
         client.create(template);
@@ -166,6 +263,30 @@ public class MailTemplateCatalogService {
         return builder.length() == 0 ? "custom" : builder.toString();
     }
 
+    private NotificationTemplate requireBuiltin(String name) {
+        return client.fetch(NotificationTemplate.class, name)
+            .orElseThrow(() -> new IllegalArgumentException("站内模板不存在：" + name));
+    }
+
+    static void markUserMaintained(AbstractExtension extension, boolean userMaintained) {
+        if (extension.getMetadata() == null) {
+            return;
+        }
+        var labels = extension.getMetadata().getLabels();
+        if (labels == null) {
+            if (!userMaintained) {
+                return;
+            }
+            labels = new HashMap<>();
+            extension.getMetadata().setLabels(labels);
+        }
+        if (userMaintained) {
+            labels.put(ExtensionUtil.DO_NOT_OVERWRITE_LABEL, "true");
+        } else {
+            labels.remove(ExtensionUtil.DO_NOT_OVERWRITE_LABEL);
+        }
+    }
+
     private void apply(MailTemplate.Spec spec, MailDto.CustomTemplatePayload payload) {
         if (payload.displayName() == null || payload.displayName().isBlank()) {
             throw new IllegalArgumentException("模板名称不能为空");
@@ -208,7 +329,9 @@ public class MailTemplateCatalogService {
             content == null ? null : content.getHtmlBody(),
             content == null ? null : content.getRawBody(),
             template.getMetadata().getCreationTimestamp() == null
-                ? null : template.getMetadata().getCreationTimestamp().toString());
+                ? null : template.getMetadata().getCreationTimestamp().toString(),
+            MailCenterLabels.isHidden(template),
+            ExtensionUtil.hasDoNotOverwriteLabel(template));
     }
 
     private MailDto.CustomTemplate toCustom(MailTemplate template) {
@@ -233,7 +356,8 @@ public class MailTemplateCatalogService {
             variables,
             spec == null || spec.getEnabled() == null || spec.getEnabled(),
             template.getMetadata().getCreationTimestamp() == null
-                ? null : template.getMetadata().getCreationTimestamp().toString());
+                ? null : template.getMetadata().getCreationTimestamp().toString(),
+            MailCenterLabels.isHidden(template));
     }
 
     /** Attributes a reason hands to its template, used to build the variable form. */

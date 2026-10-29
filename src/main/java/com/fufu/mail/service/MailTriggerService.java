@@ -1,5 +1,6 @@
 package com.fufu.mail.service;
 
+import com.fufu.mail.MailCenterLabels;
 import com.fufu.mail.dto.MailDto;
 import com.fufu.mail.model.MailTrigger;
 import java.time.Instant;
@@ -48,6 +49,14 @@ public class MailTriggerService {
     }
 
     public MailTrigger create(MailDto.TriggerPayload payload) {
+        return create(payload, false);
+    }
+
+    /**
+     * Labels are written before the record is created: updating an object that was just
+     * created would carry no resource version and Halo would treat it as an insert.
+     */
+    public MailTrigger create(MailDto.TriggerPayload payload, boolean autoProvisioned) {
         var trigger = new MailTrigger();
         var metadata = new Metadata();
         metadata.setName(payload.name() == null || payload.name().isBlank()
@@ -56,6 +65,9 @@ public class MailTriggerService {
                 .replace("mail-template-", "mail-trigger-")
             : payload.name());
         trigger.setMetadata(metadata);
+        if (autoProvisioned) {
+            MailCenterLabels.markAutoProvisioned(trigger);
+        }
         trigger.setSpec(new MailTrigger.Spec());
         apply(trigger.getSpec(), payload, null);
         client.create(trigger);
