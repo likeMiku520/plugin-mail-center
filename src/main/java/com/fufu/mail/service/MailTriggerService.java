@@ -5,6 +5,7 @@ import com.fufu.mail.dto.MailDto;
 import com.fufu.mail.model.MailTrigger;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -140,7 +141,12 @@ public class MailTriggerService {
             stats == null ? 0L : stats.getFailed(),
             stats == null ? 0L : stats.getSkipped(),
             stats == null || stats.getLastRunAt() == null ? null : stats.getLastRunAt().toString(),
-            stats == null ? null : stats.getLastMessage());
+            stats == null ? null : stats.getLastMessage(),
+            spec == null || spec.getExtraRecipients() == null ? List.of()
+                : spec.getExtraRecipients().stream()
+                    .map(reference -> new MailDto.SendTarget(reference.getEmail(),
+                        reference.getName()))
+                    .toList());
     }
 
     private void apply(MailTrigger.Spec spec, MailDto.TriggerPayload payload,
@@ -166,12 +172,30 @@ public class MailTriggerService {
                 emails.add(normalized);
             }
         }
+        var recipients = new LinkedHashMap<String, MailTrigger.RecipientRef>();
+        if (payload.extraRecipients() != null) {
+            for (var target : payload.extraRecipients()) {
+                if (target == null) {
+                    continue;
+                }
+                var normalized = MailDispatchService.normalizeEmail(target.email());
+                if (normalized == null) {
+                    throw new IllegalArgumentException("收件人邮箱不合法：" + target.email());
+                }
+                var reference = new MailTrigger.RecipientRef();
+                reference.setEmail(normalized);
+                reference.setName(target.name() == null || target.name().isBlank()
+                    ? null : target.name().trim());
+                recipients.putIfAbsent(normalized.toLowerCase(Locale.ROOT), reference);
+            }
+        }
         spec.setDisplayName(payload.displayName().trim());
         spec.setEventType(parseEventType(payload.eventType()));
         spec.setTemplateType(templateType);
         spec.setTemplateName(templateName);
         spec.setRecipientStrategy(parseStrategy(payload.recipientStrategy()));
         spec.setExtraEmails(emails);
+        spec.setExtraRecipients(new ArrayList<>(recipients.values()));
         spec.setCondition(payload.condition() == null || payload.condition().isBlank()
             ? null : payload.condition().trim());
         spec.setStats(existingStats);

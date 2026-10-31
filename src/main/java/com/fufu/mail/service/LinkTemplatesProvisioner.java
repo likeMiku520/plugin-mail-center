@@ -77,7 +77,8 @@ public class LinkTemplatesProvisioner {
             return;
         }
         var payload = new MailDto.TriggerPayload(name, displayName, true, eventType.name(), "CUSTOM",
-            templateName, MailTrigger.RecipientStrategy.EVENT_ACTOR.name(), List.of(), null);
+            templateName, MailTrigger.RecipientStrategy.EVENT_ACTOR.name(), List.of(), null,
+            List.of());
         triggerService.create(payload, true);
     }
 

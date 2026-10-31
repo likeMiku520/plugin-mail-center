@@ -11,6 +11,8 @@ import com.fufu.mail.service.MailSenderService;
 import com.fufu.mail.service.MailTemplateCatalogService;
 import com.fufu.mail.service.MailTriggerService;
 import com.fufu.mail.service.RateLimiter;
+import com.fufu.mail.service.SystemTemplates;
+import com.fufu.mail.service.TemplateBundleService;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -56,6 +58,8 @@ public class MailCenterEndpoint implements CustomEndpoint {
     private final MailTriggerService triggerService;
     private final MailSenderService senderService;
     private final RateLimiter rateLimiter;
+    private final SystemTemplates systemTemplates;
+    private final TemplateBundleService bundleService;
 
     @Override
     public GroupVersion groupVersion() {
@@ -76,10 +80,15 @@ public class MailCenterEndpoint implements CustomEndpoint {
             .DELETE("/templates/builtin/{name}", this::deleteBuiltinTemplate)
             .POST("/templates/builtin/{name}/reset", this::resetBuiltinTemplate)
             .POST("/templates/builtin/{name}/hidden", this::hideBuiltinTemplate)
+            .PUT("/templates/system/{key}", this::updateSystemTemplate)
+            .POST("/templates/system/{key}/reset", this::resetSystemTemplate)
+            .GET("/bundle", this::exportBundle)
+            .POST("/bundle/import", this::importBundle)
             .POST("/preview", this::preview)
             .GET("/recipients", this::recipients)
             .POST("/send", this::send)
             .GET("/logs", this::logs)
+            .GET("/logs/{name}", this::logDetail)
             .DELETE("/logs", this::clearLogs)
             .GET("/triggers", this::listTriggers)
             .POST("/triggers", this::createTrigger)
@@ -101,8 +110,30 @@ public class MailCenterEndpoint implements CustomEndpoint {
             Map<String, Object> payload = new LinkedHashMap<>();
             payload.put("groups", catalog.listBuiltinGroups());
             payload.put("custom", catalog.listCustom());
+            payload.put("system", systemTemplates.list());
             return payload;
         });
+    }
+
+    private Mono<ServerResponse> updateSystemTemplate(ServerRequest request) {
+        var key = request.pathVariable("key");
+        return body(request, MailDto.SystemTemplatePayload.class)
+            .flatMap(payload -> respond(() -> systemTemplates.update(key, payload)));
+    }
+
+    private Mono<ServerResponse> resetSystemTemplate(ServerRequest request) {
+        var key = request.pathVariable("key");
+        return respond(() -> systemTemplates.reset(key));
+    }
+
+    private Mono<ServerResponse> exportBundle(ServerRequest request) {
+        return respond(bundleService::export);
+    }
+
+    private Mono<ServerResponse> importBundle(ServerRequest request) {
+        var dryRun = "true".equalsIgnoreCase(request.queryParam("dryRun").orElse("false"));
+        return body(request, Map.class)
+            .flatMap(document -> respond(() -> bundleService.importBundle(document, dryRun)));
     }
 
     private Mono<ServerResponse> createTemplate(ServerRequest request) {
@@ -195,7 +226,13 @@ public class MailCenterEndpoint implements CustomEndpoint {
         var size = intParam(request, "size", 20);
         var status = request.queryParam("status").orElse(null);
         var keyword = request.queryParam("keyword").orElse(null);
-        return respond(() -> logService.page(page, size, status, keyword));
+        var source = request.queryParam("source").orElse(null);
+        return respond(() -> logService.page(page, size, status, keyword, source));
+    }
+
+    private Mono<ServerResponse> logDetail(ServerRequest request) {
+        var name = request.pathVariable("name");
+        return respond(() -> logService.detail(name));
     }
 
     private Mono<ServerResponse> clearLogs(ServerRequest request) {

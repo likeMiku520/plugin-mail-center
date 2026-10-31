@@ -36,6 +36,9 @@ public class MailDispatchService {
     private static final Pattern EMAIL = Pattern.compile("^[^@\\s]+@[^@\\s.]+(\\.[^@\\s.]+)+$");
     private static final int PREVIEW_LENGTH = 300;
 
+    /** A single stored body never exceeds this, so one huge mail cannot bloat the store. */
+    private static final int STORED_BODY_LIMIT = 120_000;
+
     private final ExtensionClient client;
     private final MailTemplateCatalogService catalog;
     private final MailRenderService renderService;
@@ -177,14 +180,14 @@ public class MailDispatchService {
             rendered = renderService.renderAll(subject, template.html(), template.raw(), model);
         } catch (MailRenderService.RenderException e) {
             writeLog(logName, email, recipientName, template, subjectOverride, "FAILED",
-                e.getMessage(), source, triggerName, dedupKey, 0L, null);
+                e.getMessage(), source, triggerName, dedupKey, 0L, null, null);
             return new MailDto.SendResult(email, recipientName, false, e.getMessage(), logName);
         }
 
         var outcome = senderService.send(email, rendered.subject(), rendered.html(), rendered.raw());
         writeLog(logName, email, recipientName, template, rendered.subject(),
             outcome.success() ? "SUCCESS" : "FAILED", outcome.error(), source, triggerName,
-            dedupKey, outcome.durationMs(), rendered.raw());
+            dedupKey, outcome.durationMs(), rendered.raw(), rendered.html());
         return new MailDto.SendResult(email, recipientName, outcome.success(), outcome.error(), logName);
     }
 
@@ -203,6 +206,15 @@ public class MailDispatchService {
                              String reason, String source, String templateType, String templateName,
                              String templateDisplayName, String triggerName, String dedupKey,
                              Instant sentAt) {
+        return recordNote(email, recipientName, subject, status, reason, source, templateType,
+            templateName, templateDisplayName, triggerName, dedupKey, sentAt, null, null);
+    }
+
+    /** Same as above, for records that also carry the body the site sent. */
+    public String recordNote(String email, String recipientName, String subject, String status,
+                             String reason, String source, String templateType, String templateName,
+                             String templateDisplayName, String triggerName, String dedupKey,
+                             Instant sentAt, String htmlBody, String rawBody) {
         var logName = dedupKey == null ? null : deterministicName(dedupKey);
         if (logName != null && client.fetch(MailSendLog.class, logName).isPresent()) {
             return logName;
@@ -229,6 +241,8 @@ public class MailDispatchService {
             spec.setTriggerName(triggerName);
             spec.setDedupKey(dedupKey);
             spec.setSentAt(sentAt == null ? Instant.now() : sentAt);
+            spec.setHtmlBody(cap(htmlBody));
+            spec.setRawBody(cap(rawBody));
             record.setSpec(spec);
             client.create(record);
             return record.getMetadata().getName();
@@ -260,7 +274,7 @@ public class MailDispatchService {
     private void writeLog(String logName, String email, String recipientName,
                           ResolvedTemplate template, String subject, String status, String error,
                           String source, String triggerName, String dedupKey, long durationMs,
-                          String raw) {
+                          String raw, String html) {
         try {
             var record = new MailSendLog();
             var metadata = new Metadata();
@@ -285,11 +299,21 @@ public class MailDispatchService {
             spec.setSentAt(Instant.now());
             spec.setDurationMs(durationMs);
             spec.setPreview(preview(raw));
+            spec.setRawBody(cap(raw));
+            spec.setHtmlBody(cap(html));
             record.setSpec(spec);
             client.create(record);
         } catch (Exception e) {
             log.warn("Failed to write a mail record for [{}]", email, e);
         }
+    }
+
+    /** Keeps one record from swallowing the whole store when a body is unusually large. */
+    static String cap(String body) {
+        if (body == null || body.length() <= STORED_BODY_LIMIT) {
+            return body;
+        }
+        return body.substring(0, STORED_BODY_LIMIT) + "\n<!-- 内容过长，仅保留前一部分 -->";
     }
 
     private static String preview(String raw) {

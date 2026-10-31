@@ -47,12 +47,12 @@ public class MailSendLog extends AbstractExtension {
 
         private String subject;
 
-        /** SUCCESS or FAILED. */
+        /** SUCCESS, FAILED, SKIPPED or SENT. */
         private String status;
 
         private String error;
 
-        /** MANUAL, API or TRIGGER. */
+        /** MANUAL, API, TRIGGER or SITE. */
         private String source;
 
         private String triggerName;
@@ -64,5 +64,10 @@ public class MailSendLog extends AbstractExtension {
         private Long durationMs;
 
         private String preview;
+
+        /** The body that went out, kept so the console can show the mail as sent. */
+        private String htmlBody;
+
+        private String rawBody;
     }
 }

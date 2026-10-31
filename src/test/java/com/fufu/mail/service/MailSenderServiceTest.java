@@ -8,7 +8,7 @@ import org.junit.jupiter.api.Test;
 
 class MailSenderServiceTest {
 
-    private final MailSenderService senderService = new MailSenderService(null);
+    private final MailSenderService senderService = new MailSenderService(null, null, null);
 
     private static MailChannelStore.ResolvedSender sender(String encryption, int port) {
         return new MailChannelStore.ResolvedSender("custom", true, null, "smtp.example.com", port,

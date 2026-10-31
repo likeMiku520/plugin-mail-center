@@ -79,6 +79,9 @@ public class MailTrigger extends AbstractExtension {
 
         private List<String> extraEmails;
 
+        /** Addresses picked from the site's users or visitors, kept as a snapshot. */
+        private List<RecipientRef> extraRecipients;
+
         /** Optional SpEL guard evaluated against the event variables. */
         private String condition;
 
@@ -101,5 +104,16 @@ public class MailTrigger extends AbstractExtension {
         private Instant lastRunAt;
 
         private String lastMessage;
+    }
+
+    /** One address added to a rule by hand or picked from the recipient directory. */
+    @Data
+    @Schema(name = "MailTriggerRecipient")
+    public static class RecipientRef {
+
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, minLength = 3)
+        private String email;
+
+        private String name;
     }
 }

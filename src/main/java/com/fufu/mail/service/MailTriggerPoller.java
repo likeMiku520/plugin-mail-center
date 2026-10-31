@@ -282,29 +282,7 @@ public class MailTriggerPoller {
     }
 
     Set<String> resolveRecipients(MailTrigger.Spec spec, String actorEmail, String postOwnerEmail) {
-        // Keyed by the lower cased address so the same mailbox is never queued twice
-        // just because one source spelled it with different capitalisation.
-        Map<String, String> unique = new LinkedHashMap<>();
-        var strategy = spec.getRecipientStrategy() == null
-            ? MailTrigger.RecipientStrategy.EVENT_ACTOR : spec.getRecipientStrategy();
-        switch (strategy) {
-            case EVENT_ACTOR -> addIfValid(unique, actorEmail);
-            case POST_AUTHOR -> addIfValid(unique, postOwnerEmail);
-            case FIXED -> {
-                // Only the explicit list is used.
-            }
-        }
-        if (spec.getExtraEmails() != null) {
-            spec.getExtraEmails().forEach(email -> addIfValid(unique, email));
-        }
-        return new LinkedHashSet<>(unique.values());
-    }
-
-    private static void addIfValid(Map<String, String> unique, String email) {
-        var normalized = MailDispatchService.normalizeEmail(email);
-        if (normalized != null) {
-            unique.putIfAbsent(normalized.toLowerCase(Locale.ROOT), normalized);
-        }
+        return TriggerRecipients.resolve(spec, actorEmail, postOwnerEmail);
     }
 
     /**

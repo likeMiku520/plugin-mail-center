@@ -45,6 +45,18 @@ export interface CustomTemplate {
   hidden: boolean
 }
 
+export interface SystemTemplate {
+  key: string
+  name: string
+  displayName: string
+  description: string
+  subject: string
+  htmlBody: string
+  rawBody: string
+  variables: TemplateVariable[]
+  edited: boolean
+}
+
 export interface Recipient {
   email: string
   displayName: string
@@ -111,6 +123,30 @@ export interface LogPage {
   size: number
 }
 
+export interface LogDetail extends LogView {
+  dedupKey: string
+  htmlBody: string
+  rawBody: string
+}
+
+export interface BundleImportItem {
+  section: string
+  name: string
+  displayName: string
+  status: string
+  message: string
+}
+
+export interface BundleImportResult {
+  dryRun: boolean
+  total: number
+  updated: number
+  unchanged: number
+  skipped: number
+  failed: number
+  items: BundleImportItem[]
+}
+
 export interface TriggerView {
   name: string
   displayName: string
@@ -129,6 +165,7 @@ export interface TriggerView {
   skipped: number
   lastRunAt: string
   lastMessage: string
+  extraRecipients: SendTarget[]
 }
 
 export interface Overview {
@@ -187,7 +224,9 @@ export const api = {
 
   templates: () =>
     axios
-      .get<{ groups: BuiltinGroup[]; custom: CustomTemplate[] }>(`${API_BASE}/templates`)
+      .get<{ groups: BuiltinGroup[]; custom: CustomTemplate[]; system: SystemTemplate[] }>(
+        `${API_BASE}/templates`
+      )
       .then((r) => r.data),
 
   createTemplate: (payload: Partial<CustomTemplate>) =>
@@ -218,6 +257,19 @@ export const api = {
   validateTemplate: (payload: Record<string, unknown>) =>
     axios.post<ApiResponse>(`${API_BASE}/templates/validate`, payload).then((r) => r.data),
 
+  updateSystemTemplate: (key: string, payload: Record<string, unknown>) =>
+    axios.put<SystemTemplate>(`${API_BASE}/templates/system/${key}`, payload).then((r) => r.data),
+
+  resetSystemTemplate: (key: string) =>
+    axios.post<SystemTemplate>(`${API_BASE}/templates/system/${key}/reset`).then((r) => r.data),
+
+  exportBundle: () => axios.get<Record<string, unknown>>(`${API_BASE}/bundle`).then((r) => r.data),
+
+  importBundle: (document_: Record<string, unknown>, dryRun: boolean) =>
+    axios
+      .post<BundleImportResult>(`${API_BASE}/bundle/import`, document_, { params: { dryRun } })
+      .then((r) => r.data),
+
   preview: (payload: Record<string, unknown>) =>
     axios.post<TemplatePreview>(`${API_BASE}/preview`, payload).then((r) => r.data),
 
@@ -229,8 +281,16 @@ export const api = {
   send: (payload: Record<string, unknown>) =>
     axios.post<SendSummary>(`${API_BASE}/send`, payload).then((r) => r.data),
 
-  logs: (params: { page: number; size: number; status?: string; keyword?: string }) =>
-    axios.get<LogPage>(`${API_BASE}/logs`, { params }).then((r) => r.data),
+  logs: (params: {
+    page: number
+    size: number
+    status?: string
+    keyword?: string
+    source?: string
+  }) => axios.get<LogPage>(`${API_BASE}/logs`, { params }).then((r) => r.data),
+
+  logDetail: (name: string) =>
+    axios.get<LogDetail>(`${API_BASE}/logs/${name}`).then((r) => r.data),
 
   clearLogs: () => axios.delete<ApiResponse>(`${API_BASE}/logs`).then((r) => r.data),
 

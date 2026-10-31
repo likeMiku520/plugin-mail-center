@@ -71,9 +71,14 @@ public class MailLogService {
     }
 
     public MailDto.LogPage page(int page, int size, String status, String keyword) {
+        return page(page, size, status, keyword, null);
+    }
+
+    public MailDto.LogPage page(int page, int size, String status, String keyword, String source) {
         var pageNumber = Math.max(1, page);
         var pageSize = Math.max(1, Math.min(size, MAX_PAGE_SIZE));
         var normalizedStatus = status == null || status.isBlank() ? null : status.trim().toUpperCase(Locale.ROOT);
+        var normalizedSource = source == null || source.isBlank() ? null : source.trim().toUpperCase(Locale.ROOT);
         var normalizedKeyword = keyword == null ? "" : keyword.trim().toLowerCase(Locale.ROOT);
 
         var filtered = all().stream()
@@ -83,6 +88,9 @@ public class MailLogService {
                     return false;
                 }
                 if (normalizedStatus != null && !normalizedStatus.equalsIgnoreCase(spec.getStatus())) {
+                    return false;
+                }
+                if (normalizedSource != null && !normalizedSource.equalsIgnoreCase(spec.getSource())) {
                     return false;
                 }
                 if (normalizedKeyword.isEmpty()) {
@@ -99,6 +107,30 @@ public class MailLogService {
         var to = Math.min(from + pageSize, filtered.size());
         var items = filtered.subList(from, to).stream().map(this::toView).toList();
         return new MailDto.LogPage(items, filtered.size(), pageNumber, pageSize);
+    }
+
+    /** One record with the body that actually went out, used by the detail panel. */
+    public MailDto.LogDetail detail(String name) {
+        var record = client.fetch(MailSendLog.class, name)
+            .orElseThrow(() -> new IllegalArgumentException("这条发送记录已经不在了"));
+        var spec = record.getSpec() == null ? new MailSendLog.Spec() : record.getSpec();
+        return new MailDto.LogDetail(
+            record.getMetadata().getName(),
+            spec.getRecipient(),
+            spec.getRecipientName(),
+            spec.getTemplateType(),
+            spec.getTemplateName(),
+            spec.getTemplateDisplayName(),
+            spec.getSubject(),
+            spec.getStatus(),
+            spec.getError(),
+            spec.getSource(),
+            spec.getTriggerName(),
+            spec.getDedupKey(),
+            spec.getSentAt() == null ? null : spec.getSentAt().toString(),
+            spec.getDurationMs(),
+            spec.getHtmlBody(),
+            spec.getRawBody() == null ? spec.getPreview() : spec.getRawBody());
     }
 
     public int clear() {

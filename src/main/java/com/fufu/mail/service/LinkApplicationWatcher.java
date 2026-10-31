@@ -224,17 +224,12 @@ public class LinkApplicationWatcher implements Watcher {
         if (strategy != MailTrigger.RecipientStrategy.FIXED) {
             addIfValid(unique, applicantEmail);
         }
-        if (spec.getExtraEmails() != null) {
-            spec.getExtraEmails().forEach(email -> addIfValid(unique, email));
-        }
+        TriggerRecipients.explicit(spec).forEach(email -> addIfValid(unique, email));
         return List.copyOf(unique.values());
     }
 
     private static void addIfValid(Map<String, String> unique, String email) {
-        var normalized = MailDispatchService.normalizeEmail(email);
-        if (normalized != null) {
-            unique.putIfAbsent(normalized.toLowerCase(java.util.Locale.ROOT), normalized);
-        }
+        TriggerRecipients.add(unique, email);
     }
 
     /** Waits for the queue to drain, used by tests and by a graceful stop. */

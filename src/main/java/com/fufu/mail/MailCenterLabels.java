@@ -17,11 +17,26 @@ public final class MailCenterLabels {
     /** Marks the templates and rules this plugin created for the links plugin. */
     public static final String AUTO_PROVISIONED = "mail.fufu520.cn/auto-provisioned";
 
+    /** Marks a template the plugin ships itself; the value is its stable key. */
+    public static final String SYSTEM = "mail.fufu520.cn/system";
+
     private MailCenterLabels() {
     }
 
     public static boolean isHidden(AbstractExtension extension) {
         return "true".equalsIgnoreCase(label(extension, HIDDEN));
+    }
+
+    public static String systemKey(AbstractExtension extension) {
+        return label(extension, SYSTEM);
+    }
+
+    public static boolean isSystem(AbstractExtension extension) {
+        return systemKey(extension) != null;
+    }
+
+    public static void markSystem(AbstractExtension extension, String key) {
+        put(extension, SYSTEM, key);
     }
 
     public static boolean isAutoProvisioned(AbstractExtension extension) {

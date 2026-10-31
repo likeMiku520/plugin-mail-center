@@ -1,12 +1,13 @@
 package com.fufu.mail.service;
 
+import com.fufu.mail.MailChannelStore;
 import java.nio.charset.StandardCharsets;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.mail.javamail.JavaMailSenderImpl;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Component;
-import com.fufu.mail.MailChannelStore;
 
 /**
  * Sends a rendered mail through the SMTP account resolved by {@link MailChannelStore}.
@@ -24,6 +25,8 @@ public class MailSenderService {
     private static final String WRITE_TIMEOUT_MS = "20000";
 
     private final MailChannelStore channelStore;
+    private final SystemTemplates systemTemplates;
+    private final MailRenderService renderService;
 
     /** Outcome of one delivery attempt; never throws, so a batch keeps going. */
     public record SendOutcome(boolean success, String error, long durationMs) {
@@ -54,18 +57,22 @@ public class MailSenderService {
 
     /** Confirms that the resolved account can actually deliver, used by the test button. */
     public SendOutcome sendTest(String to) {
-        var html = """
-            <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;\
-            max-width:520px;margin:0 auto;padding:24px;border-radius:16px;\
-            background:#f6fffe;border:1px solid #b8ece7;color:#0f3f3c;">
-              <h2 style="margin:0 0 12px;font-size:18px;color:#1f9d94;">邮件中心连接正常</h2>
-              <p style="margin:0;line-height:1.7;font-size:14px;">
-                如果你看到这封邮件，说明发信配置已经可用，可以回到后台开始发送了。
-              </p>
-            </div>
-            """;
-        var raw = "邮件中心连接正常。如果你看到这封邮件，说明发信配置已经可用。";
-        return send(to, "【邮件中心】连接测试", html, raw);
+        var template = systemTemplates.resolve(SystemTemplates.TEST_KEY);
+        String subject = template.subject();
+        String html = template.html();
+        String raw = template.raw();
+        try {
+            var model = renderService.baseModel(to, null, Map.of());
+            var rendered = renderService.renderAll(template.subject(), template.html(),
+                template.raw(), model);
+            subject = rendered.subject();
+            html = rendered.html();
+            raw = rendered.raw();
+        } catch (RuntimeException e) {
+            // A broken test template must still let the operator check the connection.
+            log.warn("Test mail template could not be rendered, sending it as written", e);
+        }
+        return send(to, subject, html, raw);
     }
 
     JavaMailSenderImpl buildSender(MailChannelStore.ResolvedSender resolved) {

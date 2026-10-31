@@ -37,6 +37,12 @@ public final class MailDto {
                                  String createdAt, boolean hidden) {
     }
 
+    /** A template the plugin itself ships, editable but not deletable. */
+    public record SystemTemplate(String key, String name, String displayName, String description,
+                                 String subject, String htmlBody, String rawBody,
+                                 List<TemplateVariable> variables, boolean edited) {
+    }
+
     /** One address a mail can be sent to, wherever it came from. */
     public record Recipient(String email, String displayName, String avatar, String kind,
                             boolean verified, String lastSeenAt) {
@@ -66,6 +72,14 @@ public final class MailDto {
                           String sentAt, Long durationMs) {
     }
 
+    /** Full record of one send, including the body that actually went out. */
+    public record LogDetail(String name, String recipient, String recipientName, String templateType,
+                            String templateName, String templateDisplayName, String subject,
+                            String status, String error, String source, String triggerName,
+                            String dedupKey, String sentAt, Long durationMs, String htmlBody,
+                            String rawBody) {
+    }
+
     public record LogPage(List<LogView> items, long total, int page, int size) {
     }
 
@@ -74,7 +88,7 @@ public final class MailDto {
                               String subjectPreview, String recipientStrategy,
                               List<String> extraEmails, String condition, String startedAt,
                               Long sent, Long failed, Long skipped, String lastRunAt,
-                              String lastMessage) {
+                              String lastMessage, List<SendTarget> extraRecipients) {
     }
 
     public record Overview(int builtinTemplates, int builtinReasonTypes, int customTemplates,
@@ -104,6 +118,10 @@ public final class MailDto {
     public record BuiltinTemplatePayload(String title, String htmlBody, String rawBody) {
     }
 
+    /** Body of one of the plugin's own templates, which share the custom shape. */
+    public record SystemTemplatePayload(String subject, String htmlBody, String rawBody) {
+    }
+
     public record HiddenPayload(Boolean hidden) {
     }
 
@@ -122,7 +140,7 @@ public final class MailDto {
     public record TriggerPayload(String name, String displayName, Boolean enabled, String eventType,
                                  String templateType, String templateName,
                                  String recipientStrategy, List<String> extraEmails,
-                                 String condition) {
+                                 String condition, List<SendTarget> extraRecipients) {
     }
 
     public record ChannelPayload(String source, String notifierDescriptor, String host, Integer port,
@@ -143,5 +161,44 @@ public final class MailDto {
     public record LinkApplicationView(String name, String status, String displayName, String url,
                                       String logo, String description, String email,
                                       String backlink, String originType, String originCommentName) {
+    }
+
+    // ---------------------------------------------------------------------------------
+    // Template bundle: the file a user exports, edits outside Halo and imports back.
+    // ---------------------------------------------------------------------------------
+
+    /** Values every template receives regardless of the event. */
+    public record BundleGlobals(List<TemplateVariable> variables, String hint) {
+    }
+
+    public record BundleBuiltin(String name, String reasonType, String reasonDisplayName,
+                                String language, String title, String htmlBody, String rawBody,
+                                List<TemplateVariable> variables) {
+    }
+
+    public record BundleCustom(String name, String displayName, String description, String subject,
+                               String htmlBody, String rawBody, boolean enabled, boolean hidden,
+                               List<TemplateVariable> variables) {
+    }
+
+    public record BundleSystem(String key, String name, String displayName, String description,
+                               String subject, String htmlBody, String rawBody,
+                               List<TemplateVariable> variables) {
+    }
+
+    /** The exported document. Field order is the reading order for an editor. */
+    public record TemplateBundle(String format, int formatVersion, String exportedAt, String siteTitle,
+                                 String siteUrl, List<String> notes, BundleGlobals globals,
+                                 List<BundleBuiltin> builtin, List<BundleCustom> custom,
+                                 List<BundleSystem> system) {
+    }
+
+    public record BundleImportItem(String section, String name, String displayName, String status,
+                                   String message) {
+    }
+
+    public record BundleImportResult(boolean dryRun, int total, int updated, int unchanged,
+                                    int skipped, int failed,
+                                    List<BundleImportItem> items) {
     }
 }

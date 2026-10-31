@@ -38,6 +38,9 @@ public class MailTemplateCatalogService {
     public static final String HIDDEN_LABEL = "halo.run/hidden";
     static final String DEFAULT_LANGUAGE = "default";
 
+    /** Name prefix of the templates the plugin ships itself. */
+    public static final String SYSTEM_PREFIX = "mail-template-system-";
+
     private static final SecureRandom RANDOM = new SecureRandom();
 
     private final ExtensionClient client;
@@ -176,6 +179,7 @@ public class MailTemplateCatalogService {
     public List<MailDto.CustomTemplate> listCustom() {
         return client.listAll(MailTemplate.class, new ListOptions(), ExtensionUtil.defaultSort())
             .stream()
+            .filter(template -> !MailCenterLabels.isSystem(template))
             .map(this::toCustom)
             .toList();
     }
