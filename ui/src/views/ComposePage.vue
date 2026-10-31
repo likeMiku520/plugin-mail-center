@@ -7,7 +7,6 @@ import {
   type CustomTemplate,
   type Recipient,
   type SendSummary,
-  type TemplatePreview,
   type TemplateVariable,
 } from '../api'
 import PreviewModal from '../components/PreviewModal.vue'
@@ -37,10 +36,7 @@ const manualInput = ref('')
 const sending = ref(false)
 const summary = ref<SendSummary | null>(null)
 
-const preview = ref<TemplatePreview | null>(null)
 const previewOpen = ref(false)
-const previewLoading = ref(false)
-const previewError = ref('')
 const previewTitle = ref('')
 
 const variables = computed<TemplateVariable[]>(() => {
@@ -153,23 +149,9 @@ async function reloadRecipients() {
   }
 }
 
-async function openPreview() {
-  previewOpen.value = true
-  previewLoading.value = true
-  previewError.value = ''
-  preview.value = null
+function openPreview() {
   previewTitle.value = '邮件预览'
-  try {
-    preview.value = await api.preview({
-      templateType: templateType.value,
-      templateName: templateName.value,
-      variables: values.value,
-    })
-  } catch (e) {
-    previewError.value = errorMessage(e)
-  } finally {
-    previewLoading.value = false
-  }
+  previewOpen.value = true
 }
 
 async function send() {
@@ -427,9 +409,10 @@ onMounted(load)
     <PreviewModal
       v-if="previewOpen"
       :title="previewTitle"
-      :preview="preview"
-      :loading="previewLoading"
-      :error="previewError"
+      :template-type="templateType"
+      :template-name="templateName"
+      :variables="variables"
+      :initial-values="values"
       @close="previewOpen = false"
     />
   </div>

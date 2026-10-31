@@ -17,6 +17,9 @@ public final class MailCenterLabels {
     /** Marks the templates and rules this plugin created for the links plugin. */
     public static final String AUTO_PROVISIONED = "mail.fufu520.cn/auto-provisioned";
 
+    /** Digest of the body this plugin wrote, so a later release can tell its own text from an edit. */
+    public static final String PROVISIONED_BODY = "mail.fufu520.cn/provisioned-body";
+
     /** Marks a template the plugin ships itself; the value is its stable key. */
     public static final String SYSTEM = "mail.fufu520.cn/system";
 
@@ -49,6 +52,20 @@ public final class MailCenterLabels {
 
     public static void markAutoProvisioned(AbstractExtension extension) {
         put(extension, AUTO_PROVISIONED, "true");
+    }
+
+    /** The digest of the body this plugin last wrote for an auto provisioned template. */
+    public static String provisionedBody(AbstractExtension extension) {
+        return label(extension, PROVISIONED_BODY);
+    }
+
+    public static void setProvisionedBody(AbstractExtension extension, String digest) {
+        put(extension, PROVISIONED_BODY, digest);
+    }
+
+    /** Generic label writer, for callers that own their own label key. */
+    public static void putLabel(AbstractExtension extension, String key, String value) {
+        put(extension, key, value);
     }
 
     private static String label(AbstractExtension extension, String key) {

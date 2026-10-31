@@ -207,7 +207,8 @@ public class MailCenterEndpoint implements CustomEndpoint {
     private Mono<ServerResponse> preview(ServerRequest request) {
         return body(request, MailDto.PreviewPayload.class)
             .flatMap(payload -> respond(() -> dispatch.preview(payload.templateType(),
-                payload.templateName(), payload.variables())));
+                payload.templateName(), payload.variables(), payload.recipientEmail(),
+                payload.recipientName())));
     }
 
     private Mono<ServerResponse> recipients(ServerRequest request) {

@@ -46,9 +46,11 @@ class NotificationTemplateDefaultsTest {
         var parsed = NotificationTemplateDefaults.parse(stream());
         var template = parsed.get("template-new-comment-on-post");
 
-        assertThat(template.get("title")).isEqualTo("[(${commenter})] 评论了你的文章");
-        assertThat(template.get("htmlBody")).contains("<p>HTML</p>");
-        assertThat(template.get("rawBody")).contains("纯文本");
+        assertThat(template.title()).isEqualTo("[(${commenter})] 评论了你的文章");
+        assertThat(template.htmlBody()).contains("<p>HTML</p>");
+        assertThat(template.rawBody()).contains("纯文本");
+        assertThat(template.reasonType()).isEqualTo("new-comment-on-post");
+        assertThat(template.language()).isEqualTo("default");
     }
 
     @Test

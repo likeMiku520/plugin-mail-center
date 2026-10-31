@@ -184,10 +184,12 @@ public class LinkApplicationWatcher implements Watcher {
     Map<String, Object> variablesOf(MailDto.LinkApplicationView application) {
         Map<String, Object> variables = new LinkedHashMap<>();
         variables.put("displayName", application.displayName());
-        variables.put("websiteUrl", application.url());
+        // The site field is free text, so it may arrive without a scheme; without one the
+        // anchor in the mail becomes a relative link and lands somewhere else.
+        variables.put("websiteUrl", MailRenderService.absoluteUrl(application.url()));
         variables.put("websiteDescription", application.description());
-        variables.put("websiteLogo", application.logo());
-        variables.put("backlink", application.backlink());
+        variables.put("websiteLogo", MailRenderService.absoluteUrl(application.logo()));
+        variables.put("backlink", MailRenderService.absoluteUrl(application.backlink()));
         variables.put("applicantEmail", application.email());
         variables.put("reviewStatus", application.status());
         variables.put("approved", LinkApplications.STATUS_APPROVED.equals(application.status()));

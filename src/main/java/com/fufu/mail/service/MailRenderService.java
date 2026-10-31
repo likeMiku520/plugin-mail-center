@@ -5,6 +5,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -102,12 +103,27 @@ public class MailRenderService {
         if (variables != null) {
             variables.forEach((key, value) -> {
                 if (key != null && !key.isBlank()) {
-                    model.put(key, value);
+                    model.put(key, completeIfAddress(key, value));
                 }
             });
         }
         return model;
     }
+
+    /**
+     * Address fields typed by a person rather than produced by the server, completed to an
+     * absolute url so a mail client has something to open. Doing it at render time as well
+     * keeps the console preview honest about what the reader will get.
+     */
+    private static Object completeIfAddress(String key, Object value) {
+        if (!(value instanceof String text) || !ADDRESS_KEYS.contains(key)) {
+            return value;
+        }
+        return absoluteUrl(text);
+    }
+
+    private static final Set<String> ADDRESS_KEYS =
+        Set.of("websiteUrl", "websiteLogo", "backlink");
 
     /** Values used when the operator only wants to look at a template. */
     public Map<String, Object> sampleModel(String recipientEmail, Map<String, Object> variables) {
@@ -115,17 +131,57 @@ public class MailRenderService {
             "示例访客", variables);
     }
 
+    /**
+     * Absolute address of the site.
+     *
+     * <p>The external url supplier answers from the running request when there is one and
+     * returns a bare "/" outside a request -- which is exactly the situation a mail is
+     * rendered in: a background watcher, a trigger, or an export. Reading the configured
+     * value first keeps every link in a mail absolute no matter who renders it.
+     */
     public String siteUrl() {
+        var configured = readSiteBasic().get("externalUrl");
+        if (configured != null && !configured.isBlank()) {
+            return trimTrailingSlash(configured.trim());
+        }
         try {
             var uri = externalUrlSupplier.get();
-            if (uri != null && uri.toString().length() > 1) {
-                var value = uri.toString();
-                return value.endsWith("/") ? value.substring(0, value.length() - 1) : value;
+            if (uri != null) {
+                var value = uri.toString().trim();
+                if (value.length() > 1 && !"/".equals(value)) {
+                    return trimTrailingSlash(value);
+                }
             }
         } catch (Exception e) {
             log.debug("External url is unavailable", e);
         }
         return "";
+    }
+
+    private static String trimTrailingSlash(String value) {
+        return value.endsWith("/") ? value.substring(0, value.length() - 1) : value;
+    }
+
+    /**
+     * Turns what someone typed into a link a mail client can open: {@code example.com}
+     * becomes {@code https://example.com}. Without this the value lands in an href as a
+     * relative address, and the reader clicks a link that goes somewhere else entirely.
+     */
+    public static String absoluteUrl(String value) {
+        if (value == null) {
+            return null;
+        }
+        var trimmed = value.trim();
+        if (trimmed.isEmpty()) {
+            return trimmed;
+        }
+        if (trimmed.startsWith("//")) {
+            return "https:" + trimmed;
+        }
+        if (trimmed.matches("^[a-zA-Z][a-zA-Z0-9+.-]*:.*")) {
+            return trimmed;
+        }
+        return "https://" + trimmed;
     }
 
     Map<String, String> readSiteBasic() {

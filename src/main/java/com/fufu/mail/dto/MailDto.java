@@ -130,7 +130,8 @@ public final class MailDto {
     }
 
     public record PreviewPayload(String templateType, String templateName,
-                                 Map<String, Object> variables) {
+                                 Map<String, Object> variables, String recipientEmail,
+                                 String recipientName) {
     }
 
     public record SendPayload(String templateType, String templateName, List<SendTarget> targets,

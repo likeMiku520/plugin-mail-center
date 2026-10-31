@@ -687,3 +687,173 @@
     word-break: break-word;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   Pieces added after 1.4.0. They reuse the tokens above so the page keeps the
+   1.4.0 look; nothing here introduces a new border colour or weight.
+   --------------------------------------------------------------------------- */
+
+.mc-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.mc-hint {
+  color: var(--mc-text-faint);
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.mc-section-title {
+  margin: 18px 0 8px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.mc-notice--ok {
+  color: var(--mc-primary-dark);
+  background: var(--mc-primary-soft);
+  border-color: var(--mc-primary-line);
+}
+
+.mc-list--tight {
+  gap: 5px;
+}
+
+.mc-item {
+  &--clickable {
+    cursor: pointer;
+  }
+
+  &--active {
+    border-color: var(--mc-primary);
+    background: var(--mc-primary-soft);
+  }
+
+  /* Group headers keep the same edge as their children, exactly like 1.4.0. */
+  &--group {
+    background: transparent;
+  }
+}
+
+.mc-empty--sm {
+  padding: 14px;
+  font-size: 12px;
+}
+
+.mc-modal__panel {
+  &--wide {
+    width: min(1040px, 100%);
+  }
+
+  /* Preview: takes nearly the whole window so a mail is visible without scrolling. */
+  &--tall {
+    width: min(1120px, 100%);
+    height: 92vh;
+    max-height: 92vh;
+  }
+
+  /* Detail panel: slides in from the right so the list stays visible behind it. */
+  &--side {
+    width: min(820px, 100%);
+    height: 100%;
+    max-height: 100%;
+    margin-left: auto;
+    border-radius: var(--mc-radius) 0 0 var(--mc-radius);
+  }
+}
+
+.mc-preview--fill {
+  flex: 1;
+  min-height: 0;
+}
+
+.mc-preview__frame--fill {
+  flex: 1 1 0;
+  height: auto;
+  min-height: 0;
+}
+
+.mc-preview__frame--tall {
+  height: 62vh;
+}
+
+/* Variable form under the preview: always reachable, scrolls on its own. */
+.mc-vars-panel {
+  flex: 0 0 auto;
+  max-height: 34vh;
+  padding: 12px 14px;
+  overflow: auto;
+  background: var(--mc-surface-soft);
+  border: 1px solid var(--mc-border);
+  border-radius: var(--mc-radius-sm);
+
+  &__head {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 4px;
+    font-size: 13px;
+    font-weight: 600;
+  }
+}
+
+.mc-vars-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 10px;
+}
+
+/* Address picked for a rule, with a remove affordance. */
+.mc-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.mc-chip {
+  display: inline-flex;
+  gap: 5px;
+  align-items: center;
+  padding: 2px 6px 2px 9px;
+  font-size: 12px;
+  background: var(--mc-surface);
+  border: 1px solid var(--mc-border);
+  border-radius: 999px;
+
+  button {
+    padding: 0 2px;
+    color: var(--mc-text-faint);
+    font-size: 13px;
+    line-height: 1;
+    background: transparent;
+    border: 0;
+    cursor: pointer;
+
+    &:hover {
+      color: var(--mc-danger);
+    }
+  }
+}
+
+/* Definition list used by the send detail panel. */
+.mc-detail {
+  display: grid;
+  grid-template-columns: 92px 1fr;
+  gap: 7px 14px;
+  margin: 0;
+  font-size: 13px;
+
+  dt {
+    color: var(--mc-text-faint);
+  }
+
+  dd {
+    margin: 0;
+    word-break: break-word;
+  }
+}

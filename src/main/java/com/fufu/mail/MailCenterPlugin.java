@@ -8,6 +8,7 @@ import com.fufu.mail.service.LinkTemplatesProvisioner;
 import com.fufu.mail.service.MailLogService;
 import com.fufu.mail.service.MailTriggerPoller;
 import com.fufu.mail.service.SystemTemplates;
+import com.fufu.mail.service.TemplateOriginals;
 import org.springframework.stereotype.Component;
 import run.halo.app.extension.Scheme;
 import run.halo.app.extension.SchemeManager;
@@ -28,12 +29,14 @@ public class MailCenterPlugin extends BasePlugin {
     private final LinkApplicationWatcher linkWatcher;
     private final LinkTemplatesProvisioner linkProvisioner;
     private final SystemTemplates systemTemplates;
+    private final TemplateOriginals templateOriginals;
 
     public MailCenterPlugin(PluginContext pluginContext, SchemeManager schemeManager,
                             MailTriggerPoller triggerPoller, MailLogService logService,
                             LinkApplicationWatcher linkWatcher,
                             LinkTemplatesProvisioner linkProvisioner,
-                            SystemTemplates systemTemplates) {
+                            SystemTemplates systemTemplates,
+                            TemplateOriginals templateOriginals) {
         super(pluginContext);
         this.schemeManager = schemeManager;
         this.triggerPoller = triggerPoller;
@@ -41,6 +44,7 @@ public class MailCenterPlugin extends BasePlugin {
         this.linkWatcher = linkWatcher;
         this.linkProvisioner = linkProvisioner;
         this.systemTemplates = systemTemplates;
+        this.templateOriginals = templateOriginals;
     }
 
     @Override
@@ -51,7 +55,9 @@ public class MailCenterPlugin extends BasePlugin {
         logService.start();
         triggerPoller.start();
         systemTemplates.provision();
+        templateOriginals.capture();
         linkProvisioner.provision();
+        linkProvisioner.refreshDefaults();
         linkWatcher.start();
     }
 

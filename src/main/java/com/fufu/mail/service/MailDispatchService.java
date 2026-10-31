@@ -100,6 +100,16 @@ public class MailDispatchService {
 
     public MailDto.TemplatePreview preview(String templateType, String templateName,
                                            Map<String, Object> variables) {
+        return preview(templateType, templateName, variables, null, null);
+    }
+
+    /**
+     * Renders a template for the preview panel. The recipient can be supplied so the
+     * console shows the same greeting a real person would receive.
+     */
+    public MailDto.TemplatePreview preview(String templateType, String templateName,
+                                           Map<String, Object> variables, String recipientEmail,
+                                           String recipientName) {
         var template = resolve(templateType, templateName);
         var merged = defaults(template);
         if (variables != null) {
@@ -109,7 +119,10 @@ public class MailDispatchService {
                 }
             });
         }
-        var model = renderService.sampleModel(null, merged);
+        var email = recipientEmail == null || recipientEmail.isBlank()
+            ? "visitor@example.com" : recipientEmail.trim();
+        var name = recipientName == null || recipientName.isBlank() ? "示例访客" : recipientName.trim();
+        var model = renderService.baseModel(email, name, merged);
         var rendered = renderService.renderAll(template.subject(), template.html(), template.raw(), model);
         return new MailDto.TemplatePreview(rendered.subject(), rendered.html(), rendered.raw(),
             template.variables());

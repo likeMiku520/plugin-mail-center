@@ -45,6 +45,7 @@ public class MailTemplateCatalogService {
 
     private final ExtensionClient client;
     private final NotificationTemplateDefaults defaults;
+    private final TemplateOriginals originals;
 
     /** All reason types that have at least one template, in a stable display order. */
     public List<MailDto.BuiltinGroup> listBuiltinGroups() {
@@ -134,9 +135,19 @@ public class MailTemplateCatalogService {
     /** Restores the body Halo ships with and hands the record back to Halo's initializer. */
     public MailDto.BuiltinTemplate resetBuiltin(String name) {
         var template = requireBuiltin(name);
-        var original = defaults.find(name);
+        var reasonType = reasonOf(template);
+        var original = defaults.find(name, reasonType);
         if (original == null) {
-            throw new IllegalArgumentException("找不到这个模板的原始内容，无法重置");
+            var snapshot = originals.find(name);
+            if (snapshot != null) {
+                original = new NotificationTemplateDefaults.Defaults(snapshot.title(),
+                    snapshot.htmlBody(), snapshot.rawBody());
+            }
+        }
+        if (original == null) {
+            throw new IllegalArgumentException("找不到这个模板的原始内容：Halo 自带的模板资源里没有它，"
+                + "本插件也没有它的快照。可以先用「导出模板文件」把现在的版本备份下来，"
+                + "再从 Halo 安装包或官方仓库里找回原文件，通过「导入模板文件」写回去。");
         }
         if (template.getSpec() == null) {
             template.setSpec(new NotificationTemplate.Spec());
@@ -151,6 +162,8 @@ public class MailTemplateCatalogService {
         content.setRawBody(original.rawBody());
         markUserMaintained(template, false);
         client.update(template);
+        originals.remember(name, new TemplateOriginals.Body(original.title(),
+            original.htmlBody(), original.rawBody()));
         return toBuiltin(template);
     }
 
@@ -208,6 +221,16 @@ public class MailTemplateCatalogService {
      */
     public MailTemplate createCustom(String name, MailDto.CustomTemplatePayload payload,
                                      boolean autoProvisioned) {
+        return createCustom(name, payload, autoProvisioned, null);
+    }
+
+    /**
+     * Labels are written before the record is created: updating an object that was just
+     * created would carry no resource version and Halo would treat it as an insert.
+     */
+    public MailTemplate createCustom(String name, MailDto.CustomTemplatePayload payload,
+                                     boolean autoProvisioned,
+                                     Map<String, String> extraLabels) {
         var template = new MailTemplate();
         var metadata = new Metadata();
         metadata.setName(name != null && !name.isBlank() ? name
@@ -219,7 +242,26 @@ public class MailTemplateCatalogService {
         }
         template.setSpec(new MailTemplate.Spec());
         apply(template.getSpec(), payload);
+        if (extraLabels != null) {
+            extraLabels.forEach((key, value) -> {
+                if (key != null && value != null) {
+                    MailCenterLabels.putLabel(template, key, value);
+                }
+            });
+        }
         client.create(template);
+        return template;
+    }
+
+    /** Rewrites the body of a template this plugin owns, keeping its labels and triggers. */
+    public MailTemplate replaceBody(String name, MailDto.CustomTemplatePayload payload) {
+        var template = client.fetch(MailTemplate.class, name)
+            .orElseThrow(() -> new IllegalArgumentException("自定义模板不存在：" + name));
+        if (template.getSpec() == null) {
+            template.setSpec(new MailTemplate.Spec());
+        }
+        apply(template.getSpec(), payload);
+        client.update(template);
         return template;
     }
 

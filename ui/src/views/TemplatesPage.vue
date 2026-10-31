@@ -9,7 +9,6 @@ import {
   type CustomTemplate,
   type Overview,
   type SystemTemplate,
-  type TemplatePreview,
   type TemplateVariable,
 } from '../api'
 import PreviewModal from '../components/PreviewModal.vue'
@@ -26,11 +25,11 @@ const tab = ref<'builtin' | 'custom'>('builtin')
 const keyword = ref('')
 const showHidden = ref(false)
 
-const preview = ref<TemplatePreview | null>(null)
 const previewTitle = ref('')
 const previewOpen = ref(false)
-const previewLoading = ref(false)
-const previewError = ref('')
+const previewType = ref('')
+const previewName = ref('')
+const previewVariables = ref<TemplateVariable[]>([])
 
 /** Values every template can use, on top of the ones a reason type declares. */
 const GLOBAL_VARIABLES: TemplateVariable[] = [
@@ -254,19 +253,12 @@ async function flash(action: () => Promise<unknown>, done: string) {
   }
 }
 
-async function openPreview(type: string, name: string, title: string) {
-  previewOpen.value = true
-  previewLoading.value = true
-  previewError.value = ''
-  preview.value = null
+function openPreview(type: string, name: string, title: string, variables: TemplateVariable[] = []) {
+  previewType.value = type
+  previewName.value = name
   previewTitle.value = title
-  try {
-    preview.value = await api.preview({ templateType: type, templateName: name, variables: {} })
-  } catch (e) {
-    previewError.value = errorMessage(e)
-  } finally {
-    previewLoading.value = false
-  }
+  previewVariables.value = variables
+  previewOpen.value = true
 }
 
 function openCreate() {
@@ -375,11 +367,8 @@ function appendVariable(name: string) {
 }
 
 function previewSystem() {
-  void openPreview(
-    'CUSTOM',
-    `mail-template-system-${systemEditor.value.key}`,
-    systemEditor.value.displayName
-  )
+  openPreview('CUSTOM', `mail-template-system-${systemEditor.value.key}`,
+    systemEditor.value.displayName)
 }
 
 async function saveEditor() {
@@ -527,13 +516,8 @@ async function checkSyntax() {
 async function previewDraft() {
   editorError.value = ''
   try {
-    preview.value = await api.preview({
-      templateType: 'CUSTOM',
-      templateName: editor.value.name,
-      variables: {},
-    })
-    previewTitle.value = editor.value.displayName || '自定义模板预览'
-    previewOpen.value = true
+    openPreview('CUSTOM', editor.value.name, editor.value.displayName || '自定义模板预览',
+      editor.value.variables.filter((item) => item.name.trim().length > 0))
   } catch (e) {
     editorError.value = errorMessage(e)
   }
@@ -787,7 +771,7 @@ onMounted(load)
 
         <div v-if="filteredGroups.length === 0" class="mc-empty">没有匹配的模板</div>
         <div v-else class="mc-list">
-          <div v-for="group in filteredGroups" :key="group.reasonType" class="mc-item">
+          <div v-for="group in filteredGroups" :key="group.reasonType" class="mc-item mc-item--group">
             <div class="mc-item__main">
               <div class="mc-item__title">
                 <span>{{ group.displayName }}</span>
@@ -822,7 +806,7 @@ onMounted(load)
                     <button
                       class="mc-btn mc-btn--sm"
                       type="button"
-                      @click="openPreview('BUILTIN', template.name, group.displayName)"
+                      @click="openPreview('BUILTIN', template.name, group.displayName, group.variables)"
                     >
                       预览
                     </button>
@@ -898,7 +882,7 @@ onMounted(load)
               <button
                 class="mc-btn mc-btn--sm"
                 type="button"
-                @click="openPreview('CUSTOM', template.name, template.displayName)"
+                @click="openPreview('CUSTOM', template.name, template.displayName, template.variables)"
               >
                 预览
               </button>
@@ -928,9 +912,9 @@ onMounted(load)
     <PreviewModal
       v-if="previewOpen"
       :title="previewTitle"
-      :preview="preview"
-      :loading="previewLoading"
-      :error="previewError"
+      :template-type="previewType"
+      :template-name="previewName"
+      :variables="previewVariables"
       @close="previewOpen = false"
     />
 
