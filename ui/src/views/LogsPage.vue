@@ -283,10 +283,9 @@ onMounted(load)
             <div v-if="detail.htmlBody" class="mc-preview">
               <div class="mc-preview__subject">{{ detail.subject || '（无标题）' }}</div>
               <iframe
-                class="mc-preview__frame"
+                class="mc-preview__frame mc-preview__frame--tall"
                 sandbox=""
                 :srcdoc="detail.htmlBody"
-                style="height: 460px"
               />
             </div>
             <div v-else class="mc-empty mc-empty--sm">
